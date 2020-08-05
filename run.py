@@ -3,18 +3,13 @@ from datetime import datetime
 from tensorboard.plugins.hparams import api as hp
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow import keras
 import config as cf
 import utils
-# call before tf import; >'0' to suppress tf module messages
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = '2'
-import tensorflow as tf # pylint: disable=wrong-import-position,wrong-import-order
-from tensorflow import keras # pylint: disable=wrong-import-position,wrong-import-order
-# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-# tf.autograph.set_verbosity(1)
 
 
 def train_test_model(X_train, y_train, X_test, y_test, hparams, callbacks, dist_strat, show):
-
     model = keras.models.Sequential([
         keras.Input(shape=(X_train.shape[1],), batch_size=hparams[cf.HP_BATCH_SIZE], name='inputs'),
         # keras.Input(shape=list(dataset.take(1).as_numpy_iterator())[0][0].shape)) #tfdataset
@@ -57,7 +52,6 @@ def train_test_model(X_train, y_train, X_test, y_test, hparams, callbacks, dist_
         shuffle=False)
     figdir = f'logs/figs/fig_{datetime.now().strftime("%Y%m%d-%H%M%S")}.png'
     utils.plot_history(history, hparams[cf.HP_OPTIMIZER], 'binary_crossentropy', figdir, show=show)
-
     accuracy = max(history.history['val_accuracy'])
     return accuracy
 

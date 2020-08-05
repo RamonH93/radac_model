@@ -1,13 +1,7 @@
-import os
 import collections
 import matplotlib.pyplot as plt
-# call before tf import; >'0' to suppress tf module messages
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = '2'
-import tensorflow as tf # pylint: disable=wrong-import-position,wrong-import-order
-from tensorflow import keras # pylint: disable=wrong-import-position,wrong-import-order
-# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-# tf.autograph.set_verbosity(1)
-
+import tensorflow as tf
+from tensorflow import keras
 
 def flatten(l):
     for el in l:
@@ -26,6 +20,7 @@ def dist_strategy(logger=None):
 
     # Select distribution strategy
     if tpu:
+        tf.config.set_soft_device_placement(True)
         tf.config.experimental_connect_to_cluster(tpu)
         tf.tpu.experimental.initialize_tpu_system(tpu)
         dist_strat = tf.distribute.experimental.TPUStrategy(tpu)

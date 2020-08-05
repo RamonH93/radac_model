@@ -4,37 +4,32 @@ import shutil
 from datetime import datetime
 from sklearn.model_selection import ParameterGrid, StratifiedShuffleSplit
 from tensorboard.plugins.hparams import api as hp
+import tensorflow as tf
+from tensorflow import keras
 import config as cf
-import run
 import utils
 import generate_dataset as gd
 import preprocess_data as ppd
-# call before tf import; >'0' to suppress tf module messages
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = '2'
-import tensorflow as tf # pylint: disable=wrong-import-position,wrong-import-order
-from tensorflow import keras # pylint: disable=wrong-import-position,wrong-import-order
-# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-# tf.autograph.set_verbosity(1)
+import run
 
+
+# clear logs
+if os.path.exists('logs'):
+    shutil.rmtree('logs')
 
 # Initialize logger
 logger = tf.get_logger()
 # default style: %(levelname)s:%(name)s:%(message)s
 logger.handlers[0].setFormatter(logging.Formatter(
     "({asctime}) {levelname:>8}: {message}", style='{'))
-# logger.propagate = False # prevent double tf log output
 logger.setLevel(cf.LOGLEVEL)
 logger.log(logger.getEffectiveLevel(), '<--- Effective log level')
 
 # Enable to find out which devices your operations and tensors are assigned to
-# Only works when imported tf with argument '0'
 try:
     tf.debugging.set_log_device_placement(False)
 except RuntimeError:
     pass
-
-# clear logs
-shutil.rmtree('logs')
 
 # generate dataset
 data_src = os.path.join(cf.DATA_LOC, cf.DATA_FILE)
@@ -59,9 +54,13 @@ dist_strat = utils.dist_strategy(logger=logger)
 
 session_num = 0
 
-train_index, test_index = next(StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=cf.SEED).split(X, y)) # pylint: disable=line-too-long
-X_train, X_test = X[train_index], X[test_index]
-y_train, y_test = y[train_index], y[test_index]
+train_indices, test_indices = next(StratifiedShuffleSplit(
+    n_splits=1,
+    test_size=0.2,
+    random_state=cf.SEED
+    ).split(X, y))
+X_train, X_test = X[train_indices], X[test_indices]
+y_train, y_test = y[train_indices], y[test_indices]
 
 param_grid = ParameterGrid({h.name: h.domain.values for h in cf.HPARAMS})
 
@@ -74,13 +73,28 @@ for _, paramset in enumerate(param_grid):
     _logdir = os.path.join(
         cf.LOGDIR,
         f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{run_name}-{paramset["optimizer"]}')
-    tensorboard_callback = keras.callbacks.TensorBoard(log_dir=_logdir)
+    tensorboard = keras.callbacks.TensorBoard(log_dir=_logdir, histogram_freq=1)
+    cp_path = os.path.join(_logdir, 'weights.ckpt')
+    os.makedirs(os.path.dirname(cp_path))
+    checkpoint = keras.callbacks.ModelCheckpoint(
+        cp_path,
+        monitor='val_accuracy',
+        verbose=0,
+        save_best_only=True,
+        save_weights_only=True,
+        mode='auto',
+        save_freq='epoch'
+    )
+    # hparams = {h: paramset[h.name] for h in cf.HPARAMS}
     # hparams_callback = hp.KerasCallback(_logdir, hparams)
-    earlystop_callback = keras.callbacks.EarlyStopping(
+    earlystopping = keras.callbacks.EarlyStopping(
         monitor='val_accuracy',
         min_delta=0.0001,
         patience=3)
-    callbacks = []
+    callbacks = [tensorboard, checkpoint, earlystopping]
+
+    # Resets all state generated previously by Keras
+    keras.backend.clear_session()
 
     run.run(_logdir, X_train, y_train, X_test, y_test, paramset, callbacks, dist_strat)
     session_num += 1
