@@ -1,0 +1,10 @@
+sklearn
+tensorboard
+tensorflow-gpu
+matplotlib
+pydot
+graphviz
+numpy
+pandas
+csv
+faker
