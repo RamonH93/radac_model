@@ -1,7 +1,7 @@
 logs/*
 data.csv
 nvidia-smi.exe.lnk
-
+py_abac_test.py
 
 ########## VS Code .gitignore ##########
 
