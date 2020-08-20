@@ -1,5 +1,4 @@
-sklearn
-tensorboard
+scikit-learn
 tensorflow-gpu==2.1.0
 matplotlib
 pydot
