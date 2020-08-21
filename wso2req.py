@@ -39,8 +39,8 @@ WSO2_PDP_API = 'https://localhost:9443/api/identity/entitlement/decision/pdp'
 WSO2_PDP_SOAP_API = 'https://localhost:9443/services/EntitlementService?wsdl'
 USERNAME = "admin"
 PASSWORD = "admin"
-PROTOCOL = 'XML'
-# PROTOCOL = 'JSON'
+# PROTOCOL = 'XML'
+PROTOCOL = 'JSON'
 
 policy = """
 <Policy xmlns="urn:oasis:names:tc:xacml:3.0:core:schema:wd-17" PolicyId="Patient-API-Policy" RuleCombiningAlgId="urn:oasis:names:tc:xacml:1.0:rule-combining-algorithm:first-applicable" Version="1.0">
@@ -119,7 +119,7 @@ request_json = {
         "Resource": {
             "Attribute": [
                 {
-                    "AttributeId": "urn:oasis:names:tc:xacml:1.0:resource:resource-id",
+                    "AttributeId": "resource-id",
                     "Value": "http://medi.com/patient/bob"
                 }
             ]
@@ -127,7 +127,7 @@ request_json = {
         "AccessSubject": {
             "Attribute": [
                 {
-                    "AttributeId": "urn:oasis:names:tc:xacml:1.0:subject:subject-id",
+                    "AttributeId": "subject-id",
                     "Value": "Patient"
                 }
             ]
@@ -135,7 +135,7 @@ request_json = {
         "Action": {
             "Attribute": [
                 {
-                    "AttributeId": "urn:oasis:names:tc:xacml:1.0:action:action-id",
+                    "AttributeId": "action-id",
                     "Value": "GET"
                 }
             ]
@@ -251,8 +251,9 @@ with requests.Session() as s:
     except zeep.exceptions.Error as e:
         print(e)
 
+    # client.service.publishToPDP('RPSlist', version=1, enabled=False, order=30) # doesnt work
     print(client.service.getAllPolicyIds())
-    # print(client.service.getPolicy('authn_scope_based_policy_template', False))
+    # print(client.service.getPolicy('RPSlist', False))
 
 
 # SOAP communication with PDP: query the PDP
