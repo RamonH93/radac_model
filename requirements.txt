@@ -1,12 +1,10 @@
-sklearn
-tensorboard
+scikit-learn
 tensorflow-gpu==2.1.0
 matplotlib
 pydot
 graphviz
 numpy
 pandas
-csv
 faker
 zeep
 xmltodict
