@@ -2,7 +2,6 @@ logs/*
 data.csv
 nvidia-smi.exe.lnk
 py_abac_test.py
-wso2is.tar
 
 ########## VS Code .gitignore ##########
 
