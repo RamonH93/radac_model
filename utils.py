@@ -1,7 +1,50 @@
 import collections
+from pathlib import Path
+import toml
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
+from tensorboard.plugins.hparams import api as hp
+
+
+def load_config() -> dict:
+    config = toml.load('config.toml')
+
+    config['logdir'] = Path(config['logdir'])
+    config['model_loc'] = Path(config['model_loc'])
+    config['fig_loc'] = Path(config['fig_loc'])
+    config['data_src'] = Path(config['data_src'])
+
+    if any('num_units' in x for x in config['hyperparameters']):
+        val = config['hyperparameters']['hp_num_units']
+        config['hyperparameters']['hp_num_units'] = hp.HParam('num_units', hp.Discrete([val]))
+    else:
+        config['hyperparameters']['hp_num_units'] = hp.HParam('num_units', hp.Discrete([100]))
+
+    if any('batch_size' in x for x in config['hyperparameters']):
+        val = config['hyperparameters']['hp_batch_size']
+        config['hyperparameters']['hp_batch_size'] = hp.HParam('batch_size', hp.Discrete([val]))
+    else:
+        config['hyperparameters']['hp_batch_size'] = hp.HParam('batch_size', hp.Discrete([100]))
+
+    if any('dropout' in x for x in config['hyperparameters']):
+        val = config['hyperparameters']['hp_dropout']
+        assert isinstance(val, list)
+        assert len(val) == 2
+        assert isinstance(val[0], float)
+        assert isinstance(val[1], float)
+        config['hyperparameters']['hp_dropout'] = hp.HParam('dropout', hp.RealInterval(val[0], val[1])) # pylint: disable=line-too-long
+    # else:
+        # config['hyperparameters']['hp_dropout'] = hp.HParam('dropout', hp.RealInterval(0.1, 0.2))
+
+    if any('optimizer' in x for x in config['hyperparameters']):
+        val = config['hyperparameters']['hp_optimizer']
+        config['hyperparameters']['hp_optimizer'] = hp.HParam('optimizer', hp.Discrete(val))
+    else:
+        config['hyperparameters']['hp_optimizer'] = hp.HParam('optimizer', hp.Discrete(['adam', 'sgd'])) # pylint: disable=line-too-long
+    config['hyperparameters']['hparams'] = [
+        config['hyperparameters'][hparam] for hparam in config['hyperparameters'] if 'hp_' in hparam] # pylint: disable=line-too-long
+    return config
 
 def flatten(l):
     for el in l:

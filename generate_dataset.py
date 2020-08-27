@@ -1,14 +1,16 @@
 import csv
 import random
+from pathlib import Path
 import numpy as np
 from faker import Faker
 from classes import Person, File, Request, PolicyDecisionPoint
 
 
-def generate_dataset(n=10000, seed=1, dest="data.csv", logger=None):
+def generate_dataset(n=10000, seed=1, dest=Path("data.csv"), logger=None):
     Faker.seed(seed)
     random.seed(seed)
     np.random.seed(seed)
+    Path.mkdir(dest.parent, parents=True, exist_ok=False)
 
     fake = Faker(['nl_NL'])
     confi_lvls = clearance_lvls = np.arange(1, 6)

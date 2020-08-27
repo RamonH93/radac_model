@@ -1,9 +1,10 @@
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 
-def preprocess_data(data_src="data.csv", seed=1, plot=False, logger=None):
+def preprocess_data(data_src=Path("data.csv"), seed=1, plot=False, logger=None):
     df = pd.read_csv(data_src)
 
     del df['ID']

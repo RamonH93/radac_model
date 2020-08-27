@@ -1,0 +1,15 @@
+loglevel = "DEBUG" # any int or DEBUG (10), INFO (20), WARN (30), ERROR (40), CRITICAL (50)
+logdir = "logs/hparam_tuning"
+model_loc = "logs/figs"
+fig_loc = "logs/figs"
+seed = 1
+data_src = "bs/data.csv"
+data_n = 10000
+log_device_placement = false
+
+[hyperparameters]
+hp_num_units = 100
+hp_batch_size = 100
+# hp_dropout = [0.1, 0.2] # must be array of 2 floats to pass minmax interval
+hp_optimizer = [ "adam", "sgd" ]
+metric_accuracy = "accuracy"
