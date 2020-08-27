@@ -3,7 +3,7 @@ logdir = "logs/hparam_tuning"
 model_loc = "logs/figs"
 fig_loc = "logs/figs"
 seed = 1
-data_src = "bs/data.csv"
+data_src = "data.csv"
 data_n = 10000
 log_device_placement = false
 
