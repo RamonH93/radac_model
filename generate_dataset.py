@@ -10,7 +10,7 @@ def generate_dataset(n=10000, seed=1, dest=Path("data.csv"), logger=None):
     Faker.seed(seed)
     random.seed(seed)
     np.random.seed(seed)
-    Path.mkdir(dest.parent, parents=True, exist_ok=False)
+    Path.mkdir(dest.parent, parents=True, exist_ok=True)
 
     fake = Faker(['nl_NL'])
     confi_lvls = clearance_lvls = np.arange(1, 6)

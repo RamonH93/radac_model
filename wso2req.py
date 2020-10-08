@@ -1,8 +1,8 @@
 import json
 import requests
+import xmltodict
 import urllib3
 import zeep
-import xmltodict
 
 # import logging.config
 

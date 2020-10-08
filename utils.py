@@ -1,10 +1,10 @@
 import collections
 from pathlib import Path
-import toml
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
 from tensorboard.plugins.hparams import api as hp
+import toml
 
 
 def load_config() -> dict:

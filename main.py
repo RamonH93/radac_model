@@ -1,15 +1,15 @@
 import logging
 from pathlib import Path
-import shutil
 from datetime import datetime
-from sklearn.model_selection import ParameterGrid, StratifiedShuffleSplit
-from tensorboard.plugins.hparams import api as hp
+import shutil
 import tensorflow as tf
 from tensorflow import keras
-import utils
+from tensorboard.plugins.hparams import api as hp
+from sklearn.model_selection import ParameterGrid, StratifiedKFold, KFold
 import generate_dataset as gd
 import preprocess_data as ppd
 import run
+import utils
 
 
 def main():
@@ -18,6 +18,7 @@ def main():
 
     # Initialize logger
     logger = tf.get_logger()
+
     # default style: %(levelname)s:%(name)s:%(message)s
     logger.handlers[0].setFormatter(logging.Formatter(
         "({asctime}) {levelname:>8}: {message}", style='{'))
@@ -60,6 +61,7 @@ def main():
         logger=logger
         )
     logger.info("Preprocessed data successfully")
+
     # write hyperparameters
     with tf.summary.create_file_writer(str(config['logdir'])).as_default():
         hp.hparams_config(
@@ -70,23 +72,25 @@ def main():
     logger.debug("Wrote hyperparameters")
 
     dist_strat = utils.dist_strategy(logger=logger)
-    logger.debug("Selected distribution strategy")
+    logger.debug(f"Selected distribution strategy {dist_strat}")
 
-    session_num = 0
-
-    train_indices, test_indices = next(StratifiedShuffleSplit(
-        n_splits=1,
-        test_size=0.2,
+    # TODO simple vs stratified sampling.
+    cv_n_splits = 5
+    kf = KFold(
+        n_splits=cv_n_splits,
+        shuffle=True,
         random_state=config['seed']
-        ).split(X, y))
-    X_train, X_test = X[train_indices], X[test_indices]
-    y_train, y_test = y[train_indices], y[test_indices]
-
-    logger.debug("Split train/test")
+    )
+    # Making sure to use the same folds for each paramset later
+    train_idxs = []
+    test_idxs = []
+    for train_idx, test_idx in kf.split(X, y):
+        train_idxs.append(train_idx)
+        test_idxs.append(test_idx)
 
     param_grid = ParameterGrid(
         {h.name: h.domain.values for h in config['hyperparameters']['hparams']})
-    for _, paramset in enumerate(param_grid):
+    for session_num, paramset in enumerate(param_grid):
         run_name = "run-%d" % session_num
         logger.info('--- Starting trial: %s' % run_name)
         logger.info(paramset)
@@ -95,6 +99,7 @@ def main():
         _logdir = config['logdir'] / f'{run_name}-{datetime.now().strftime("%Y%m%d-%H%M%S")}-{paramset["optimizer"]}' # pylint: disable=line-too-long
         Path.mkdir(_logdir, parents=True, exist_ok=True)
         tensorboard = keras.callbacks.TensorBoard(log_dir=str(_logdir), histogram_freq=1)
+        # tensorboard = keras.callbacks.TensorBoard(log_dir=str(_logdir))
         cp_path = str(_logdir / 'weights.ckpt')
         checkpoint = keras.callbacks.ModelCheckpoint(
             cp_path,
@@ -106,26 +111,28 @@ def main():
             save_freq='epoch'
         )
         hparams = {h: paramset[h.name] for h in config['hyperparameters']['hparams']}
-        print(hparams)
         # hyperparameters = hp.KerasCallback(_logdir, hparams)
-        earlystopping = keras.callbacks.EarlyStopping(
-            monitor='val_accuracy',
-            min_delta=0.0001,
-            patience=3)
+        # earlystopping = keras.callbacks.EarlyStopping(
+        #     monitor='val_accuracy',
+        #     min_delta=0.0001,
+        #     patience=10)
         callbacks = [
             tensorboard,
             checkpoint,
             # hyperparameters,
-            earlystopping
+            # earlystopping
             ]
 
         # Resets all state generated previously by Keras
         keras.backend.clear_session()
 
-
-        with tf.summary.create_file_writer(str(_logdir)).as_default():
-            # record the values used in this trial
-            hp.hparams(hparams, trial_id=f'{run_name}_{paramset}') # pylint: disable=line-too-long
+        # Run k-fold cross-validation
+        accuracies = []
+        for i in range(cv_n_splits):
+            X_train = X[train_idxs[i]]
+            y_train = y[train_idxs[i]]
+            X_test = X[test_idxs[i]]
+            y_test = y[test_idxs[i]]
 
             accuracy = run.train_test_model(run_name,
                                             X_train,
@@ -136,8 +143,16 @@ def main():
                                             callbacks,
                                             dist_strat,
                                             show=False)
+            accuracies.append(accuracy)
+        avg_acc = sum(accuracies)/len(accuracies)
+        logger.debug(accuracies)
+        logger.debug(avg_acc)
 
-            tf.summary.scalar(config['hyperparameters']['metric_accuracy'], accuracy, step=1)
+        # Write paramset accuracy score to tensorboard
+        with tf.summary.create_file_writer(str(_logdir)).as_default():
+            # record the values used in this trial
+            hp.hparams(hparams, trial_id=f'{run_name}_{paramset}') # pylint: disable=line-too-long
+            tf.summary.scalar(config['hyperparameters']['metric_accuracy'], avg_acc, step=1)
 
             # # parallel coordinates test
             # pcdf = pd.DataFrame(paramset, index=[0])
@@ -159,7 +174,5 @@ def main():
                 # y=optcol,
                 # features=list(pcdf.columns),
                 # classes=['adam', 'sgd'])
-
-        session_num += 1
 
 main()
