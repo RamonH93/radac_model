@@ -11,19 +11,17 @@ def load_config() -> dict:
     config = toml.load('config.toml')
 
     config['logdir'] = Path(config['logdir'])
-    config['model_loc'] = Path(config['model_loc'])
-    config['fig_loc'] = Path(config['fig_loc'])
     config['data_src'] = Path(config['data_src'])
 
     if any('num_units' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_num_units']
-        config['hyperparameters']['hp_num_units'] = hp.HParam('num_units', hp.Discrete([val]))
+        config['hyperparameters']['hp_num_units'] = hp.HParam('num_units', hp.Discrete(val))
     else:
         config['hyperparameters']['hp_num_units'] = hp.HParam('num_units', hp.Discrete([100]))
 
     if any('batch_size' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_batch_size']
-        config['hyperparameters']['hp_batch_size'] = hp.HParam('batch_size', hp.Discrete([val]))
+        config['hyperparameters']['hp_batch_size'] = hp.HParam('batch_size', hp.Discrete(val))
     else:
         config['hyperparameters']['hp_batch_size'] = hp.HParam('batch_size', hp.Discrete([100]))
 

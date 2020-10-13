@@ -13,7 +13,7 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
     config = utils.load_config()
 
     model = keras.models.Sequential([
-        keras.Input(shape=(X_train.shape[1],), batch_size=paramset['batch_size'], name='inputs'),
+        keras.Input(shape=(X_train.shape[1],), name='inputs'),
         # keras.Input(shape=list(dataset.take(1).as_numpy_iterator())[0][0].shape)) #tfdataset
         keras.layers.Dense(
             paramset['num_units'],
@@ -46,26 +46,28 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
             metrics=[config['hyperparameters']['metric_accuracy']],
         )
 
-    Path.mkdir(config['model_loc'], parents=True, exist_ok=True)
-    model_loc = config['model_loc'] / f'{run_name}-{datetime.now().strftime("%Y%m%d-%H%M%S")}-model.png'  # pylint: disable=line-too-long
-    keras.utils.plot_model(model, model_loc, show_shapes=True, rankdir='LR')
+    logdir_models = config['logdir'] / 'models'
+    Path.mkdir(logdir_models, parents=True, exist_ok=True)
+    logdir_model = logdir_models / f'{run_name}-{datetime.now().strftime("%Y%m%d-%H%M%S")}-model.png'  # pylint: disable=line-too-long
+    keras.utils.plot_model(model, logdir_model, show_shapes=True, rankdir='LR')
     if show:
         plt.axis('off')
-        plt.imshow(mpimg.imread(model_loc))
+        plt.imshow(mpimg.imread(logdir_model))
         plt.show()
 
     history = model.fit(
         X_train, y_train,
         batch_size=paramset['batch_size'],
-        epochs=25,
-        verbose=0,
+        epochs=50,
+        verbose=2,
         callbacks=callbacks,
         validation_data=(X_test, y_test),
-        shuffle=False)
+        shuffle=True)
 
-    Path.mkdir(config['fig_loc'], parents=True, exist_ok=True)
-    fig_loc = config['fig_loc'] / f'{run_name}-{datetime.now().strftime("%Y%m%d-%H%M%S")}-fig.png'
-    utils.plot_history(history, paramset['optimizer'], 'binary_crossentropy', fig_loc, show=show)
+    logdir_figs = config['logdir'] / 'figs'
+    Path.mkdir(logdir_figs, parents=True, exist_ok=True)
+    logdir_fig = logdir_figs / f'{run_name}-{datetime.now().strftime("%Y%m%d-%H%M%S")}-fig.png'
+    utils.plot_history(history, paramset['optimizer'], 'binary_crossentropy', logdir_fig, show=show)
     accuracy = max(history.history['val_accuracy'])
 
     # explainer = LimeTabularExplainer(

@@ -1,6 +1,8 @@
 logs/*
-data.csv
-nvidia-smi.exe.lnk
+*.csv
+*.lnk
+*.html
+
 
 ########## VS Code .gitignore ##########
 

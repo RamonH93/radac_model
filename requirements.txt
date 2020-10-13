@@ -5,6 +5,7 @@ pydot
 graphviz
 numpy
 pandas
+pandas-profiling>=2.6.0
 faker
 zeep
 xmltodict
