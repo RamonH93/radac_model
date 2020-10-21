@@ -1,10 +1,11 @@
 import collections
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow import keras
-from tensorboard.plugins.hparams import api as hp
 import toml
+from tensorboard.plugins.hparams import api as hp
+from tensorflow import keras
 
 
 def load_config() -> dict:
@@ -15,15 +16,19 @@ def load_config() -> dict:
 
     if any('num_units' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_num_units']
-        config['hyperparameters']['hp_num_units'] = hp.HParam('num_units', hp.Discrete(val))
+        config['hyperparameters']['hp_num_units'] = hp.HParam(
+            'num_units', hp.Discrete(val))
     else:
-        config['hyperparameters']['hp_num_units'] = hp.HParam('num_units', hp.Discrete([100]))
+        config['hyperparameters']['hp_num_units'] = hp.HParam(
+            'num_units', hp.Discrete([100]))
 
     if any('batch_size' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_batch_size']
-        config['hyperparameters']['hp_batch_size'] = hp.HParam('batch_size', hp.Discrete(val))
+        config['hyperparameters']['hp_batch_size'] = hp.HParam(
+            'batch_size', hp.Discrete(val))
     else:
-        config['hyperparameters']['hp_batch_size'] = hp.HParam('batch_size', hp.Discrete([100]))
+        config['hyperparameters']['hp_batch_size'] = hp.HParam(
+            'batch_size', hp.Discrete([100]))
 
     if any('dropout' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_dropout']
@@ -31,25 +36,29 @@ def load_config() -> dict:
         assert len(val) == 2
         assert isinstance(val[0], float)
         assert isinstance(val[1], float)
-        config['hyperparameters']['hp_dropout'] = hp.HParam('dropout', hp.RealInterval(val[0], val[1])) # pylint: disable=line-too-long
+        config['hyperparameters']['hp_dropout'] = hp.HParam('dropout', hp.RealInterval(val[0], val[1]))  # pylint: disable=line-too-long
     # else:
-        # config['hyperparameters']['hp_dropout'] = hp.HParam('dropout', hp.RealInterval(0.1, 0.2))
+    # config['hyperparameters']['hp_dropout'] = hp.HParam('dropout', hp.RealInterval(0.1, 0.2))
 
     if any('optimizer' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_optimizer']
-        config['hyperparameters']['hp_optimizer'] = hp.HParam('optimizer', hp.Discrete(val))
+        config['hyperparameters']['hp_optimizer'] = hp.HParam(
+            'optimizer', hp.Discrete(val))
     else:
-        config['hyperparameters']['hp_optimizer'] = hp.HParam('optimizer', hp.Discrete(['adam', 'sgd'])) # pylint: disable=line-too-long
+        config['hyperparameters']['hp_optimizer'] = hp.HParam('optimizer', hp.Discrete(['adam', 'sgd']))  # pylint: disable=line-too-long
     config['hyperparameters']['hparams'] = [
-        config['hyperparameters'][hparam] for hparam in config['hyperparameters'] if 'hp_' in hparam] # pylint: disable=line-too-long
+        config['hyperparameters'][hparam] for hparam in config['hyperparameters'] if 'hp_' in hparam]  # pylint: disable=line-too-long
     return config
+
 
 def flatten(l):
     for el in l:
-        if isinstance(el, collections.Iterable) and not isinstance(el, (str, bytes)):
+        if isinstance(
+                el, collections.Iterable) and not isinstance(el, (str, bytes)):
             yield from flatten(el)
         else:
             yield el
+
 
 # determine tensorflow distribution strategy
 def dist_strategy(logger=None):
@@ -66,7 +75,8 @@ def dist_strategy(logger=None):
         tf.tpu.experimental.initialize_tpu_system(tpu)
         dist_strat = tf.distribute.experimental.TPUStrategy(tpu)
         if logger:
-            logger.debug('Running on TPU %s', tpu.cluster_spec().as_dict()['worker'])
+            logger.debug('Running on TPU %s',
+                         tpu.cluster_spec().as_dict()['worker'])
     else:
         # GPU detection
         gpus = len(tf.config.experimental.list_physical_devices('GPU'))
@@ -80,20 +90,23 @@ def dist_strategy(logger=None):
 
 def plot_history(history: keras.callbacks.History, optimizer: str, loss: str, figdir: str = None, show: bool = False):  # pylint: disable=line-too-long
     # print(plt.style.available)
-    plt.style.use('default') # reset style
+    plt.style.use('default')  # reset style
     plt.style.use('seaborn-ticks')
     fig, ax1 = plt.subplots()
     loss_color = 'tab:red'
     ax1.set_xlabel('epoch')
     ax1.set_ylabel('loss', color=loss_color)
-    ax1.set_xlim(history.epoch[0]-1, history.epoch[-1]+1)
-    ax1.set_ylim(0, 1.05 * max(history.history.get('loss') + history.history.get('val_loss')))
+    ax1.set_xlim(history.epoch[0] - 1, history.epoch[-1] + 1)
+    ax1.set_ylim(
+        0, 1.05 *
+        max(history.history.get('loss') + history.history.get('val_loss')))
     ax1.tick_params(axis='y', labelcolor=loss_color)
-    ax2 = ax1.twinx() # instantiate a second axes that shares the same x-axis
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     acc_color = 'tab:green'
-    ax2.set_ylabel('accuracy', color=acc_color)
+    ax2.set_ylabel('accuracy and AUC', color=acc_color)
     ax2.set_ylim(0, 1)
-    ax2.tick_params(axis='y', labelcolor=acc_color)
+    ax2.tick_params(axis='y', labelcolor='tab:green')
+    auc_color = 'tab:blue'
 
     for label in history.history.keys():
         x = history.epoch
@@ -104,14 +117,21 @@ def plot_history(history: keras.callbacks.History, optimizer: str, loss: str, fi
             if 'val' not in label:
                 # training loss is measured during each epoch while validation loss is measured
                 # after each epoch, so on average training loss is measured half an epoch earlier
-                x = [epoch-0.5 for epoch in history.epoch]
+                x = [epoch - 0.5 for epoch in history.epoch]
                 alpha = 0.4
         else:
             ax = ax2
-            color = acc_color
+            if 'accuracy' in label:
+                color = acc_color
+            else:
+                color = auc_color
             if 'val' not in label:
                 alpha = 0.4
-        ax.plot(x, history.history.get(label), color=color, alpha=alpha, label=label)
+        ax.plot(x,
+                history.history.get(label),
+                color=color,
+                alpha=alpha,
+                label=label)
 
     lines, labels = [], []
     for ax in fig.axes:
@@ -128,3 +148,27 @@ def plot_history(history: keras.callbacks.History, optimizer: str, loss: str, fi
         plt.show()
     else:
         plt.close()
+
+
+def plot_parallel_coordinates():
+    # # parallel coordinates test
+    # pcdf = pd.DataFrame(paramset, index=[0])
+    # pcdf['best_val_accuracy'] = accuracy
+    # print(pcdf)
+    # pd.plotting.parallel_coordinates(pcdf, 'optimizer')
+    # plt.show()
+    # optcol = pcdf.pop('optimizer')
+    # # bscol = pcdf.pop('batch_size')
+    # from yellowbrick.features import Rank2D
+    # pcdf = pcdf.to_numpy()
+    # visualizer = Rank2D(algorithm="pearson")
+    # visualizer.fit_transform(pcdf)
+    # visualizer.draw()
+    # yellowbrick.features.parallel_coordinates(pcdf, bscol)
+    # opt = 1 if optcol[0] == 'adam' else 0
+    # visualizer = yellowbrick.features.parallel_coordinates(
+    #     X=pcdf,
+    #     y=optcol,
+    #     features=list(pcdf.columns),
+    #     classes=['adam', 'sgd'])
+    pass

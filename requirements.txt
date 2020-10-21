@@ -1,5 +1,6 @@
 scikit-learn
 tensorflow==2.1.0
+tensorflow-addons==0.9.1
 matplotlib
 pydot
 graphviz

@@ -4,5 +4,6 @@
         "**/.gitignore",
         "**/.spellignore",
         "**/README.md"
-    ]
+    ],
+    "python.formatting.provider": "yapf"
 }
