@@ -2,8 +2,10 @@ import collections
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 import tensorflow as tf
 import toml
+from sklearn.metrics import confusion_matrix
 from tensorboard.plugins.hparams import api as hp
 from tensorflow import keras
 
@@ -88,7 +90,20 @@ def dist_strategy(logger=None):
         dist_strat = tf.distribute.get_strategy()
     return dist_strat
 
-def plot_history(history: keras.callbacks.History, optimizer: str, loss: str, figdir: str = None, show: bool = False):  # pylint: disable=line-too-long
+
+def plot_cm(y_test, y_pred, logdir_fig, paramset, p=0.5):
+    sns.heatmap(confusion_matrix(y_test, y_pred),
+                cmap="YlGnBu",
+                annot=True,
+                fmt="d")
+    plt.title(f'{paramset}\nConfusion matrix @{p}')
+    plt.ylabel('Actual label')
+    plt.xlabel('Predicted label')
+    plt.savefig(logdir_fig)
+    plt.close()
+
+
+def plot_metrics(history: keras.callbacks.History, optimizer: str, loss: str, figdir: str = None, show: bool = False):  # pylint: disable=line-too-long
     # print(plt.style.available)
     plt.style.use('default')  # reset style
     plt.style.use('seaborn-ticks')

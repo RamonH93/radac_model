@@ -4,9 +4,9 @@ from pathlib import Path
 
 import tensorflow as tf
 
+import explainers as exp
 import generate_dataset as gd
 import preprocess_data as ppd
-import explainers as exp
 import run
 import utils
 
@@ -33,7 +33,7 @@ def main():
         shutil.rmtree('logs')
     logger.info('Cleared previous logs')
 
-    # Enable to find out which devices your operations and tensors are assigned to
+    # Log device placement to find out which devices your operations and tensors are assigned to
     try:
         tf.debugging.set_log_device_placement(config['log_device_placement'])
         logger.debug(f'Log device placement: {config["log_device_placement"]}')
@@ -66,7 +66,7 @@ def main():
         f"Found best paramset: {best_hparams} with accuracy: {best_avg_acc}")
 
     # Train final model
-    best_hparams = {'batch_size': 100, 'num_units': 50, 'optimizer': 'adam'}
+    # best_hparams = {'batch_size': 100, 'num_units': 50, 'optimizer': 'adam'}
     run.train_final_model(X,
                           y,
                           paramset=best_hparams,

@@ -5,6 +5,7 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import ParameterGrid, StratifiedKFold
 from sklearn.utils import compute_class_weight, shuffle
 from tensorboard.plugins.hparams import api as hp
@@ -14,6 +15,8 @@ import utils
 
 
 def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callbacks, config, dist_strat, show=False):  # pylint: disable=line-too-long
+    logger = config['logger']
+
     model = keras.models.Sequential([
         keras.Input(shape=(X_train.shape[1], ), name='inputs'),
         # keras.Input(shape=list(dataset.take(1).as_numpy_iterator())[0][0].shape)) #tfdataset
@@ -105,8 +108,24 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
 
     logdir_figs = config['logdir'] / 'figs'
     Path.mkdir(logdir_figs, parents=True, exist_ok=True)
-    logdir_fig = logdir_figs / f'{run_name}-{datetime.now().strftime("%Y%m%d-%H%M%S")}-fig.png'
-    utils.plot_history(history,
+
+    # logger.info(model.evaluate(X_test, y_test))
+    y_pred = model.predict(X_test)
+    # y_pred = np.rint(y_pred)
+    # logger.debug(np.asarray(np.unique(y_pred, return_counts=True)).tolist())
+    # logger.debug(np.asarray(np.unique(y_test, return_counts=True)).tolist())
+
+    discrimination_threshold = 0.5
+    tn, fp, fn, tp = utils.flatten(confusion_matrix(y_test, y_pred > discrimination_threshold))
+    logger.info(
+        f'tp:{tp},fp:{fp},tn:{tn},fn:{fn},acc:{(tp+tn)/len(y_test)}, tnr:{tn/(tn+fp)}'
+    )
+
+    logdir_fig = logdir_figs / f'{run_name}-cm-{datetime.now().strftime("%Y%m%d-%H%M%S")}.png'
+    utils.plot_cm(y_test, y_pred > discrimination_threshold, logdir_fig, paramset, p=0.5)
+
+    logdir_fig = logdir_figs / f'{run_name}-metrics-{datetime.now().strftime("%Y%m%d-%H%M%S")}.png'
+    utils.plot_metrics(history,
                        paramset['optimizer'],
                        'binary_crossentropy',
                        logdir_fig,
@@ -273,27 +292,13 @@ def train_final_model(X, y, paramset, config, dist_strat):
                      dist_strat,
                      show=False)
 
+    # Save in .h5 format too for visualization compatibility
     model = keras.models.load_model(ckpt_path)
     model.save(Path(ckpt_path) / 'saved_model.h5', save_format='h5')
-    model = keras.models.load_model(str(Path(ckpt_path) / 'saved_model.h5'))
-    logger.info(model.evaluate(X_test, y_test))
-    y_pred = model.predict(X_test)
-    y_pred = np.rint(y_pred)
-    logger.debug(np.asarray(np.unique(y_pred, return_counts=True)).tolist())
-    logger.debug(np.asarray(np.unique(y_test, return_counts=True)).tolist())
+    # model = keras.models.load_model(str(Path(ckpt_path) / 'saved_model.h5'))
 
-    tp, fp, tn, fn = 0, 0, 0, 0
-    for pred, true in zip(y_pred, y_test):
-        if pred == true:
-            if true == 1:
-                tp += 1
-            else:
-                tn += 1
-        else:
-            if true == 1:
-                fn += 1
-            else:
-                fp += 1
-    print(
-        f'tp:{tp},fp:{fp},tn:{tn},fn:{fn},acc:{(tp+tn)/len(y_test)}, tnr:{tn/(tn+fp)}'
-    )
+    # Confusion matrix of final model on test set
+    logdir_figs = config['logdir'] / 'figs'
+    Path.mkdir(logdir_figs, parents=True, exist_ok=True)
+    logdir_fig = logdir_figs / f'run-final-test-cm-{datetime.now().strftime("%Y%m%d-%H%M%S")}.png'
+    utils.plot_cm(y_test, model.predict(X_test) > 0.5, logdir_fig, paramset, p=0.5)
