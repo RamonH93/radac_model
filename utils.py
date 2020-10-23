@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import tensorflow as tf
 import toml
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score, auc, confusion_matrix, roc_curve
 from tensorboard.plugins.hparams import api as hp
 from tensorflow import keras
 
@@ -96,9 +96,32 @@ def plot_cm(y_test, y_pred, logdir_fig, paramset, p=0.5):
                 cmap="YlGnBu",
                 annot=True,
                 fmt="d")
-    plt.title(f'{paramset}\nConfusion matrix @{p}')
+    plt.title(
+        f'{paramset}\n'\
+        f'Confusion matrix @{p}, '\
+        f'n={len(y_test)}, '\
+        f'Accuracy={round(accuracy_score(y_test, y_pred), 2)}'
+    )
     plt.ylabel('Actual label')
     plt.xlabel('Predicted label')
+    plt.savefig(logdir_fig)
+    plt.close()
+
+
+def plot_roc(labels, predictions, logdir_fig, paramset):
+    fpr, tpr, _ = roc_curve(labels, predictions)
+    roc_auc = auc(fpr, tpr)
+
+    plt.title('Receiver Operating Characteristic')
+    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
+    plt.legend(loc='lower right')
+    plt.plot([0, 1], [0, 1], 'r--')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.title(
+        f'{paramset}\nReceiver Operating Characteristic @{round(roc_auc, 2)}')
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
     plt.savefig(logdir_fig)
     plt.close()
 
