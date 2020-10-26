@@ -2,9 +2,12 @@ import collections
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import matplotlib.collections as mcoll
+import numpy as np
 import seaborn as sns
 import tensorflow as tf
 import toml
+from matplotlib.legend_handler import HandlerLineCollection
 from sklearn.metrics import accuracy_score, auc, confusion_matrix, roc_curve
 from tensorboard.plugins.hparams import api as hp
 from tensorflow import keras
@@ -109,24 +112,124 @@ def plot_cm(y_test, y_pred, logdir_fig, paramset, p=0.5):
 
 
 def plot_roc(labels, predictions, logdir_fig, paramset):
-    fpr, tpr, _ = roc_curve(labels, predictions)
+    def youdens_j_stat(fpr, tpr, thresholds):
+        sensitivity = tpr
+        specificity = 1. - fpr
+        J = sensitivity + specificity - 1.
+        opt_idx = np.argmax(J)
+        opt_J = J[opt_idx]
+        opt_threshold = thresholds[opt_idx]
+        return opt_idx, opt_threshold, opt_J
+    
+    
+    def make_segments(x, y, reverseColors=False):
+        """
+        Create list of line segments from x and y coordinates, in the correct format
+        for LineCollection: an array of the form numlines x (points per line) x 2 (x
+        and y) array
+        """
+
+        points = np.array([x, y]).T.reshape(-1, 1, 2)
+        if reverseColors:
+            points = np.flip(points, axis=0)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        return segments
+
+    def colorline(x,
+                  y,
+                  z=None,
+                  cmap=plt.get_cmap('copper'),
+                  norm=plt.Normalize(0.0, 1.0),
+                  linewidth=3,
+                  alpha=1.0):
+
+        # Default colors equally spaced on [0,1]:
+        if z is None:
+            z = np.linspace(0.0, 1.0, len(x))
+
+        # Special case if a single number:
+        if not hasattr(
+                z,
+                "__iter__"):  # to check for numerical input -- this is a hack
+            z = np.array([z])
+
+        z = np.asarray(z)
+
+        segments = make_segments(x, y)
+        lc = mcoll.LineCollection(segments,
+                                  array=z,
+                                  cmap=cmap,
+                                  norm=norm,
+                                  linewidth=linewidth,
+                                  alpha=alpha)
+
+        ax = plt.gca()
+        ax.add_collection(lc)
+
+        return lc
+
+
+    class HandlerColorLineCollection(HandlerLineCollection):
+        def create_artists(self, legend, orig_handle, xdescent, ydescent, width,
+                           height, fontsize, trans):
+            x = np.linspace(0, width, self.get_numpoints(legend) + 1)
+            y = np.zeros(self.get_numpoints(legend) +
+                         1) + height / 2. - ydescent
+            segments = make_segments(x, y, reverseColors=True)
+            lc = mcoll.LineCollection(segments,
+                                      cmap=orig_handle.cmap,
+                                      transform=trans)
+            lc.set_array(x)
+            lc.set_linewidth(orig_handle.get_linewidth())
+            return [lc]
+
+    fpr, tpr, thresholds = roc_curve(labels, predictions)
+    # thresholds[0] = 1.
     roc_auc = auc(fpr, tpr)
+    opt_idx, opt_threshold, opt_J = youdens_j_stat(fpr, tpr, thresholds)
 
     plt.title('Receiver Operating Characteristic')
-    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
-    plt.legend(loc='lower right')
+
+    lc = colorline(fpr, tpr, thresholds, cmap='YlGnBu', linewidth=2)
+    cbar = plt.colorbar(lc)
+    cbar.set_label('Discrimination threshold', rotation=270, labelpad=12)
+
     plt.plot([0, 1], [0, 1], 'r--')
+    plt.scatter(fpr[opt_idx],
+                tpr[opt_idx],
+                marker='o',
+                color='black',
+                label="Optimal threshold = %0.2f" % opt_threshold)
+    plt.vlines(x=fpr[opt_idx],
+               ymin=fpr[opt_idx],
+               ymax=tpr[opt_idx],
+               colors='black',
+               linestyles='dashed',
+               label="Youden's J statistic = %0.2f" % opt_J)
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    handles.insert(0, lc)
+    labels.insert(0, 'ROC AUC = %0.2f' % roc_auc)
+    plt.legend(handles=handles,
+               labels=labels,
+               loc='lower right',
+               handler_map={lc: HandlerColorLineCollection(numpoints=5)})
+
     plt.xlim([0, 1])
     plt.ylim([0, 1])
     plt.title(
-        f'{paramset}\nReceiver Operating Characteristic @{round(roc_auc, 2)}')
-    plt.ylabel('True Positive Rate')
-    plt.xlabel('False Positive Rate')
+        f'{paramset}\nReceiver Operating Characteristic')
+    plt.ylabel('True Positive Rate: TP/(TP+FN)')
+    plt.xlabel('False Positive Rate: FP/(FP+TN)')
     plt.savefig(logdir_fig)
     plt.close()
 
 
-def plot_metrics(history: keras.callbacks.History, optimizer: str, loss: str, figdir: str = None, show: bool = False):  # pylint: disable=line-too-long
+def plot_metrics(history: keras.callbacks.History,
+                 optimizer: str,
+                 loss: str,
+                 figdir: str = None,
+                 show: bool = False):
     # print(plt.style.available)
     plt.style.use('default')  # reset style
     plt.style.use('seaborn-ticks')
