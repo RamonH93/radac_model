@@ -94,6 +94,21 @@ def dist_strategy(logger=None):
     return dist_strat
 
 
+@tf.function
+def mcc_metric(y_true, y_pred):
+    predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32)
+    true_pos = tf.math.count_nonzero(predicted * y_true)
+    true_neg = tf.math.count_nonzero((predicted - 1) * (y_true - 1))
+    false_pos = tf.math.count_nonzero(predicted * (y_true - 1))
+    false_neg = tf.math.count_nonzero((predicted - 1) * y_true)
+    x = tf.cast((true_pos + false_pos) * (true_pos + false_neg) *
+                (true_neg + false_pos) * (true_neg + false_neg), tf.float32)
+    mcc = tf.cast((true_pos * true_neg) -
+                  (false_pos * false_neg), tf.float32) / tf.sqrt(x)
+    mcc = tf.where(tf.math.is_nan(mcc), 0., mcc)
+    return mcc
+
+
 def plot_cm(y_test, y_pred, logdir_fig, paramset, p=0.5):
     sns.heatmap(confusion_matrix(y_test, y_pred),
                 cmap="YlGnBu",
@@ -120,8 +135,7 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
         opt_J = J[opt_idx]
         opt_threshold = thresholds[opt_idx]
         return opt_idx, opt_threshold, opt_J
-    
-    
+
     def make_segments(x, y, reverseColors=False):
         """
         Create list of line segments from x and y coordinates, in the correct format
@@ -168,7 +182,6 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
 
         return lc
 
-
     class HandlerColorLineCollection(HandlerLineCollection):
         def create_artists(self, legend, orig_handle, xdescent, ydescent, width,
                            height, fontsize, trans):
@@ -188,13 +201,11 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
     roc_auc = auc(fpr, tpr)
     opt_idx, opt_threshold, opt_J = youdens_j_stat(fpr, tpr, thresholds)
 
-    plt.title('Receiver Operating Characteristic')
-
     lc = colorline(fpr, tpr, thresholds, cmap='YlGnBu', linewidth=2)
     cbar = plt.colorbar(lc)
     cbar.set_label('Discrimination threshold', rotation=270, labelpad=12)
 
-    plt.plot([0, 1], [0, 1], 'r--')
+    plt.plot([0, 1], [0, 1], 'r--', label='Random or constant class')
     plt.scatter(fpr[opt_idx],
                 tpr[opt_idx],
                 marker='o',
@@ -208,10 +219,11 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
                label="Youden's J statistic = %0.2f" % opt_J)
 
     handles, labels = plt.gca().get_legend_handles_labels()
-    handles.insert(0, lc)
-    labels.insert(0, 'ROC AUC = %0.2f' % roc_auc)
-    plt.legend(handles=handles,
-               labels=labels,
+    handles.append(lc)
+    labels.append('ROC AUC = %0.2f' % roc_auc)
+    order = [3, 1, 2, 0]
+    plt.legend(handles=[handles[idx] for idx in order],
+               labels=[labels[idx] for idx in order],
                loc='lower right',
                handler_map={lc: HandlerColorLineCollection(numpoints=5)})
 

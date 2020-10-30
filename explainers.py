@@ -1,21 +1,32 @@
 from pathlib import Path
 
+import tensorflow as tf
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
 from sklearn.utils import shuffle
 from tensorflow import keras
 
+import utils
+
 
 # Explain instance exp_n using LIME
-def lime_explainer(X, y, config):
+def lime_explainer(X, y, config, paramset):
     logger = config['logger']
-    final_model_path = str(config['logdir'] / 'final' / 'weights.ckpt')
+    final_model_path = config['logdir'] / 'final'
+    ckpt_path = str(final_model_path / 'saved_model')
     exp_n = config['exp_n']
 
     keras.backend.clear_session()
 
     # model = keras.models.load_model(final_model_path)
-    model = keras.models.load_model(Path(final_model_path) / 'saved_model.h5')
+    model = keras.models.load_model(ckpt_path, compile=False)
+    model.compile(
+        optimizer=paramset['optimizer'],
+        # optimizer='SGD',
+        loss='binary_crossentropy',
+        metrics=[
+            config['hyperparameters']['metric_accuracy'], utils.mcc_metric
+        ])
 
     X, y = shuffle(X, y, random_state=config['seed'])
 
@@ -79,6 +90,7 @@ def lime_explainer(X, y, config):
         ],
         categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
         class_names=['Survived', 'NOT Survived'],
+        random_state=config['seed'],
     )
     # logger.debug(y_test[exp_n])
     # logger.debug(X_test[exp_n])
@@ -96,6 +108,8 @@ def lime_explainer(X, y, config):
         return expanded
 
     # logger.debug(predict(X_test))
-    exp = explainer.explain_instance(X_test[exp_n],
+    opp = X_test[exp_n]
+    # opp[1] = 0 # Change Sex to female
+    exp = explainer.explain_instance(opp,
                                      predict_with_opposite_class_preds)
     exp.save_to_file('explanation.html')

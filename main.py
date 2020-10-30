@@ -66,7 +66,8 @@ def main():
         f"Found best paramset: {best_hparams} with accuracy: {best_avg_acc}")
 
     # Train final model
-    # best_hparams = {'batch_size': 100, 'num_units': 50, 'optimizer': 'adam'}
+    # tf.config.experimental_run_functions_eagerly(True)
+    # best_hparams = {'batch_size': 100, 'num_units': 500, 'optimizer': 'adam'}
     run.train_final_model(X,
                           y,
                           paramset=best_hparams,
@@ -74,7 +75,7 @@ def main():
                           dist_strat=dist_strat)
 
     # Explain instance exp_n using LIME
-    exp.lime_explainer(X, y, config)
+    exp.lime_explainer(X, y, config, best_hparams)
 
 
 if __name__ == '__main__':
