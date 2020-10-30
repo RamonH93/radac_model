@@ -5,7 +5,6 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import ParameterGrid, StratifiedKFold
 from sklearn.utils import compute_class_weight
@@ -78,26 +77,15 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
         #     (keras.backend.sum(y_true) + keras.backend.sum(y_pred) + smooth))
 
     with dist_strat.scope():
-        def mcc_metric(y_true, y_pred):
-            predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32)
-            true_pos = tf.math.count_nonzero(predicted * y_true)
-            true_neg = tf.math.count_nonzero((predicted - 1) * (y_true - 1))
-            false_pos = tf.math.count_nonzero(predicted * (y_true - 1))
-            false_neg = tf.math.count_nonzero((predicted - 1) * y_true)
-            x = tf.cast((true_pos + false_pos) * (true_pos + false_neg) *
-                        (true_neg + false_pos) * (true_neg + false_neg),
-                        tf.float32)
-            return tf.cast((true_pos * true_neg) -
-                           (false_pos * false_neg), tf.float32) / tf.sqrt(x)
-
         model.compile(
             optimizer=paramset['optimizer'],
             # optimizer='SGD',
             loss='binary_crossentropy',
             metrics=[
-                config['hyperparameters']['metric_accuracy'],
-                MatthewsCorrelationCoefficient(num_classes=1), mcc_metric
-            ])
+                config['hyperparameters']['metric_accuracy'], utils.mcc_metric
+            ],
+            # run_eagerly=True
+            )
 
 
     class_weight = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
@@ -299,49 +287,29 @@ def train_final_model(X, y, paramset, config, dist_strat):
     # Resets all state generated previously by Keras
     keras.backend.clear_session()
 
-    # train_test_model(run_name,
-    #                  X_train,
-    #                  y_train,
-    #                  X_val,
-    #                  y_val,
-    #                  paramset,
-    #                  callbacks,
-    #                  config,
-    #                  dist_strat,
-    #                  show=False)
+    train_test_model(run_name,
+                     X_train,
+                     y_train,
+                     X_val,
+                     y_val,
+                     paramset,
+                     callbacks,
+                     config,
+                     dist_strat,
+                     show=False)
 
     # Save in .h5 format too for visualization compatibility
     model = keras.models.load_model(ckpt_path, compile=False)
     with dist_strat.scope():
-        def mcc_metric(y_true, y_pred):
-            predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32)
-            true_pos = tf.math.count_nonzero(predicted * y_true)
-            true_neg = tf.math.count_nonzero((predicted - 1) * (y_true - 1))
-            false_pos = tf.math.count_nonzero(predicted * (y_true - 1))
-            false_neg = tf.math.count_nonzero((predicted - 1) * y_true)
-            x = tf.cast((true_pos + false_pos) * (true_pos + false_neg) *
-                        (true_neg + false_pos) * (true_neg + false_neg),
-                        tf.float32)
-            return tf.cast((true_pos * true_neg) - (false_pos * false_neg), tf.float32) / tf.sqrt(x)
         model.compile(
             optimizer=paramset['optimizer'],
             # optimizer='SGD',
             loss='binary_crossentropy',
             metrics=[
-                config['hyperparameters']['metric_accuracy'],
-                MatthewsCorrelationCoefficient(num_classes=1), mcc_metric
+                config['hyperparameters']['metric_accuracy'], utils.mcc_metric
             ])
     # model.save(Path(ckpt_path) / 'saved_model.h5', save_format='h5')
     # model = keras.models.load_model(str(Path(ckpt_path) / 'saved_model.h5'))
-
-    mcc = MatthewsCorrelationCoefficient(num_classes=1)
-    y_pred = model.predict(X_test) > .5
-    nested = np.ndarray((len(y_test), 1), dtype=np.int32)
-    for idx, el in enumerate(y_test):
-        nested[idx] = np.array([el])
-    print(confusion_matrix(nested, y_pred))
-    mcc.update_state(nested, y_pred)
-    print(mcc.result().numpy())
 
     logdir_figs = config['logdir'] / 'figs'
     Path.mkdir(logdir_figs, parents=True, exist_ok=True)
