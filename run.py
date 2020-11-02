@@ -15,7 +15,7 @@ import utils
 
 
 def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callbacks, config, dist_strat, show=False):  # pylint: disable=line-too-long
-    logger = config['logger']
+    logger = config['run_params']['logger']
 
     model = keras.models.Sequential([
         keras.Input(shape=(X_train.shape[1], ), name='inputs'),
@@ -81,14 +81,13 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
             optimizer=paramset['optimizer'],
             # optimizer='SGD',
             loss='binary_crossentropy',
-            metrics=[
-                config['hyperparameters']['metric_accuracy'], utils.mcc_metric
-            ],
+            metrics=config['hyperparameters']['metrics'],
             # run_eagerly=True
-            )
+        )
 
-
-    class_weight = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+    class_weight = compute_class_weight('balanced',
+                                        classes=np.unique(y_train),
+                                        y=y_train)
     history = model.fit(
         X_train,
         y_train,
@@ -101,7 +100,6 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
         validation_data=(X_test, y_test),
         shuffle=True)
 
-
     # logger.info(model.evaluate(X_test, y_test))
     y_pred = model.predict(X_test)
     # y_pred = np.rint(y_pred)
@@ -109,12 +107,13 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
     # logger.debug(np.asarray(np.unique(y_test, return_counts=True)).tolist())
 
     discrimination_threshold = 0.5
-    tn, fp, fn, tp = utils.flatten(confusion_matrix(y_test, y_pred > discrimination_threshold))
+    tn, fp, fn, tp = utils.flatten(
+        confusion_matrix(y_test, y_pred > discrimination_threshold))
     logger.info(
         f'tp:{tp},fp:{fp},tn:{tn},fn:{fn},acc:{(tp+tn)/len(y_test)}, tnr:{tn/(tn+fp)}'
     )
 
-    logdir_figs = config['logdir'] / 'figs'
+    logdir_figs = config['run_params']['logdir'] / 'figs'
     Path.mkdir(logdir_figs, parents=True, exist_ok=True)
     logdir_fig = logdir_figs / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{run_name}-model.png'
 
@@ -125,7 +124,11 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
         plt.show()
 
     logdir_fig = logdir_figs / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{run_name}-cm.png'
-    utils.plot_cm(y_test, y_pred > discrimination_threshold, logdir_fig, paramset, p=0.5)
+    utils.plot_cm(y_test,
+                  y_pred > discrimination_threshold,
+                  logdir_fig,
+                  paramset,
+                  p=0.5)
 
     logdir_fig = logdir_figs / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{run_name}-roc.png'
     utils.plot_roc(y_test, y_pred, logdir_fig, paramset)
@@ -142,20 +145,24 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
 
 
 def tune_hparams(X, y, config, dist_strat):
-    logger = config['logger']
+    logger = config['run_params']['logger']
     param_grid = ParameterGrid({
         h.name: h.domain.values
         for h in config['hyperparameters']['hparams']
     })
 
     # Write hyperparameters
-    with tf.summary.create_file_writer(str(config['logdir'])).as_default():
+    with tf.summary.create_file_writer(str(
+            config['run_params']['logdir'])).as_default():
+        # metrics = []
+        # for metric in config['hyperparameters']['metrics']:
+        #     if isinstance(metric, str):
+        #         metrics.append(hp.Metric(metric, display_name=metric))
+        #     elif callable(metric):
+        #         metrics.append(hp.Metric(metric.__name__))
         hp.hparams_config(
             hparams=config['hyperparameters']['hparams'],
-            metrics=[
-                hp.Metric(config['hyperparameters']['metric_accuracy'],
-                          display_name='Accuracy')
-            ],
+            metrics=[hp.Metric("Accuracy")],
         )
     logger.debug("Wrote hyperparameters")
 
@@ -166,24 +173,16 @@ def tune_hparams(X, y, config, dist_strat):
         logger.info(f'--- Starting trial: {run_name}/{len(param_grid)}')
         logger.info(paramset)
 
-        logdir_paramset = config['logdir'] / \
-                            f'hparam_tuning' / \
-                            f'{run_name}-' \
-                            f'batch_size={paramset["batch_size"]}-' \
-                            f'num_units={paramset["num_units"]}-' \
-                            f'optimizer={paramset["optimizer"]}-' \
-                            f'{datetime.now().strftime("%Y%m%d-%H%M%S")}'
-        Path.mkdir(logdir_paramset, parents=True, exist_ok=True)
-
         # Run k-fold cross-validation on paramset
         # no need to shuffle because of shuffle in preprocessing
         accuracies = []
         for fold_num, (train_idx, test_idx) in enumerate(
-                StratifiedKFold(config['cv_n_splits']).split(X, y)):
+                StratifiedKFold(config['run_params']['cv_n_splits']).split(
+                    X, y)):
             fold_name = f'fold={fold_num+1}'
             logger.info(
-                f'--- Starting cross-validation: {fold_name}/{config["cv_n_splits"]}'
-                f' of {run_name}/{len(param_grid)}')
+                f"--- Starting cross-validation: {fold_name}/{config['run_params']['cv_n_splits']}"
+                f" of {run_name}/{len(param_grid)}")
             X_train = X[train_idx]
             y_train = y[train_idx]
             X_test = X[test_idx]
@@ -193,8 +192,8 @@ def tune_hparams(X, y, config, dist_strat):
             y_test = y_test.astype(np.float32)
 
             # Define the Keras callbacks
-            logdir_cv = config['logdir'] / \
-                            f'{config["cv_n_splits"]}-fold-cv' / \
+            logdir_cv = config['run_params']['logdir'] / \
+                            f'{config["run_params"]["cv_n_splits"]}-fold-cv' / \
                             f'{run_name}-' \
                             f'batch_size={paramset["batch_size"]}-' \
                             f'num_units={paramset["num_units"]}-' \
@@ -204,22 +203,11 @@ def tune_hparams(X, y, config, dist_strat):
             Path.mkdir(logdir_cv, parents=True, exist_ok=True)
             tensorboard = keras.callbacks.TensorBoard(log_dir=str(logdir_cv),
                                                       histogram_freq=1)
-
-            hparams = {
-                h: paramset[h.name]
-                for h in config['hyperparameters']['hparams']
-            }
-            # hyperparameters = hp.KerasCallback(_logdir, hparams)
             earlystopping = keras.callbacks.EarlyStopping(monitor='val_loss',
                                                           min_delta=0.0001,
                                                           patience=5,
                                                           verbose=1)
-            callbacks = [
-                tensorboard,
-                # checkpoint,
-                # hyperparameters,
-                earlystopping
-            ]
+            callbacks = [tensorboard, earlystopping]
 
             # Resets all state generated previously by Keras
             keras.backend.clear_session()
@@ -243,17 +231,27 @@ def tune_hparams(X, y, config, dist_strat):
         logger.debug(avg_acc)
 
         # Write paramset run metrics to tensorboard
+        logdir_paramset = config['run_params']['logdir'] / \
+                            f'hparam_tuning' / \
+                            f'{run_name}-' \
+                            f'batch_size={paramset["batch_size"]}-' \
+                            f'num_units={paramset["num_units"]}-' \
+                            f'optimizer={paramset["optimizer"]}-' \
+                            f'{datetime.now().strftime("%Y%m%d-%H%M%S")}'
+        Path.mkdir(logdir_paramset, parents=True, exist_ok=True)
+        hparams = {
+            h: paramset[h.name]
+            for h in config['hyperparameters']['hparams']
+        }
         with tf.summary.create_file_writer(str(logdir_paramset)).as_default():
             # record the values used in this trial
             hp.hparams(hparams, trial_id=f'{run_name}_{paramset}')
-            tf.summary.scalar(config['hyperparameters']['metric_accuracy'],
-                              avg_acc,
-                              step=1)
+            tf.summary.scalar("Accuracy", avg_acc, step=1)
     return best_hparams, best_avg_acc
 
 
 def train_final_model(X, y, paramset, config, dist_strat):
-    final_model_path = config['logdir'] / 'final'
+    final_model_path = config['run_params']['logdir'] / 'final'
     run_name = 'run_final'
 
     # Split data
@@ -273,11 +271,11 @@ def train_final_model(X, y, paramset, config, dist_strat):
                                               histogram_freq=1)
     ckpt_path = str(final_model_path / 'saved_model')
     checkpoint = keras.callbacks.ModelCheckpoint(ckpt_path,
-                                                 monitor='val_loss',
+                                                 monitor='val_MCC',
                                                  verbose=0,
                                                  save_best_only=True,
                                                  save_weights_only=False,
-                                                 mode='auto',
+                                                 mode='max',
                                                  save_freq='epoch')
     callbacks = [
         tensorboard,
@@ -305,20 +303,19 @@ def train_final_model(X, y, paramset, config, dist_strat):
             optimizer=paramset['optimizer'],
             # optimizer='SGD',
             loss='binary_crossentropy',
-            metrics=[
-                config['hyperparameters']['metric_accuracy'], utils.mcc_metric
-            ])
+            metrics=config['hyperparameters']['metrics'],
+        )
     # model.save(Path(ckpt_path) / 'saved_model.h5', save_format='h5')
     # model = keras.models.load_model(str(Path(ckpt_path) / 'saved_model.h5'))
 
-    logdir_figs = config['logdir'] / 'figs'
+    logdir_figs = config['run_params']['logdir'] / 'figs'
     Path.mkdir(logdir_figs, parents=True, exist_ok=True)
     logdir_fig = logdir_figs / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}'\
                                f'-{run_name}-test-model.png'
     keras.utils.plot_model(model, logdir_fig, show_shapes=True, rankdir='LR')
 
     y_pred = model.predict(X_test)
-    logdir_figs = config['logdir'] / 'figs'
+    logdir_figs = config['run_params']['logdir'] / 'figs'
     Path.mkdir(logdir_figs, parents=True, exist_ok=True)
     logdir_fig = logdir_figs / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{run_name}-test-cm.png'
     utils.plot_cm(y_test, y_pred > 0.5, logdir_fig, paramset, p=0.5)

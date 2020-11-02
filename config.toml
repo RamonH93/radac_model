@@ -1,15 +1,19 @@
-loglevel = "DEBUG" # any int or DEBUG (10), INFO (20), WARN (30), ERROR (40), CRITICAL (50)
-logdir = "logs"
-seed = 11
-data_src = "train_titanic.csv"
+[run_params]
 cv_n_splits = 4
 data_n = 10000
+data_src = "train_titanic.csv"
 exp_n = 23
-log_device_placement = false
+logdir = "logs"
 
 [hyperparameters]
-hp_num_units = [500]
 hp_batch_size = [100]
+hp_num_units = [500]
 # hp_dropout = [0.1, 0.2] # must be array of 2 floats to pass minmax interval
 hp_optimizer = ["adam", "rmsprop"]
-metric_accuracy = "accuracy"
+metrics = ["accuracy", "AUC", "MCC"]
+
+[debugging]
+log_device_placement = false 
+loglevel = "DEBUG" # any int or DEBUG (10), INFO (20), WARN (30), ERROR (40), CRITICAL (50)
+remove_logs = true 
+seed = 11

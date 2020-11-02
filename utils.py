@@ -16,9 +16,11 @@ from tensorflow import keras
 def load_config() -> dict:
     config = toml.load('config.toml')
 
-    config['logdir'] = Path(config['logdir'])
-    config['data_src'] = Path(config['data_src'])
+    # Parse paths
+    config['run_params']['logdir'] = Path(config['run_params']['logdir'])
+    config['run_params']['data_src'] = Path(config['run_params']['data_src'])
 
+    # Parse num_units
     if any('num_units' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_num_units']
         config['hyperparameters']['hp_num_units'] = hp.HParam(
@@ -27,6 +29,7 @@ def load_config() -> dict:
         config['hyperparameters']['hp_num_units'] = hp.HParam(
             'num_units', hp.Discrete([100]))
 
+    # Parse batch_size
     if any('batch_size' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_batch_size']
         config['hyperparameters']['hp_batch_size'] = hp.HParam(
@@ -35,24 +38,39 @@ def load_config() -> dict:
         config['hyperparameters']['hp_batch_size'] = hp.HParam(
             'batch_size', hp.Discrete([100]))
 
+    # Parse dropout layer
     if any('dropout' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_dropout']
         assert isinstance(val, list)
         assert len(val) == 2
         assert isinstance(val[0], float)
         assert isinstance(val[1], float)
-        config['hyperparameters']['hp_dropout'] = hp.HParam('dropout', hp.RealInterval(val[0], val[1]))  # pylint: disable=line-too-long
+        config['hyperparameters']['hp_dropout'] = hp.HParam(
+            'dropout', hp.RealInterval(val[0], val[1]))
     # else:
     # config['hyperparameters']['hp_dropout'] = hp.HParam('dropout', hp.RealInterval(0.1, 0.2))
 
+    # Parse optimizer
     if any('optimizer' in x for x in config['hyperparameters']):
         val = config['hyperparameters']['hp_optimizer']
         config['hyperparameters']['hp_optimizer'] = hp.HParam(
             'optimizer', hp.Discrete(val))
     else:
-        config['hyperparameters']['hp_optimizer'] = hp.HParam('optimizer', hp.Discrete(['adam', 'sgd']))  # pylint: disable=line-too-long
+        config['hyperparameters']['hp_optimizer'] = hp.HParam(
+            'optimizer', hp.Discrete(['adam', 'sgd']))
+
+    # List active hyperparameters
     config['hyperparameters']['hparams'] = [
-        config['hyperparameters'][hparam] for hparam in config['hyperparameters'] if 'hp_' in hparam]  # pylint: disable=line-too-long
+        config['hyperparameters'][param] for param in config['hyperparameters']
+        if 'hp_' in param
+    ]
+
+    # Parse MCC metric
+    try:
+        mcc_idx = config['hyperparameters']['metrics'].index("MCC")
+        config['hyperparameters']['metrics'][mcc_idx] = MCC
+    except ValueError:
+        pass
     return config
 
 
@@ -94,8 +112,16 @@ def dist_strategy(logger=None):
     return dist_strat
 
 
+def rename(newname):
+    def decorator(f):
+        f.__name__ = newname
+        return f
+
+    return decorator
+
+
 @tf.function
-def mcc_metric(y_true, y_pred):
+def MCC(y_true, y_pred):
     predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32)
     true_pos = tf.math.count_nonzero(predicted * y_true)
     true_neg = tf.math.count_nonzero((predicted - 1) * (y_true - 1))
@@ -183,8 +209,8 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
         return lc
 
     class HandlerColorLineCollection(HandlerLineCollection):
-        def create_artists(self, legend, orig_handle, xdescent, ydescent, width,
-                           height, fontsize, trans):
+        def create_artists(self, legend, orig_handle, xdescent, ydescent,
+                           width, height, fontsize, trans):
             x = np.linspace(0, width, self.get_numpoints(legend) + 1)
             y = np.zeros(self.get_numpoints(legend) +
                          1) + height / 2. - ydescent
@@ -229,8 +255,7 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
 
     plt.xlim([0, 1])
     plt.ylim([0, 1])
-    plt.title(
-        f'{paramset}\nReceiver Operating Characteristic')
+    plt.title(f'{paramset}\nReceiver Operating Characteristic')
     plt.ylabel('True Positive Rate: TP/(TP+FN)')
     plt.xlabel('False Positive Rate: FP/(FP+TN)')
     plt.savefig(logdir_fig)
@@ -255,11 +280,22 @@ def plot_metrics(history: keras.callbacks.History,
         max(history.history.get('loss') + history.history.get('val_loss')))
     ax1.tick_params(axis='y', labelcolor=loss_color)
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-    acc_color = 'tab:green'
-    ax2.set_ylabel('accuracy and AUC', color=acc_color)
-    ax2.set_ylim(0, 1)
+    ax2.set_ylabel('(val_)' + str([
+        label for label in history.history.keys()
+        if 'loss' not in label and 'val' not in label
+    ]),
+                   color='tab:green')
+    ax2_min = 0
+    for label in history.history.keys():
+        if 'loss' not in label:
+            ymin = min(history.history.get(label))
+            if ymin < ax2_min:
+                ax2_min = ymin
+    ax2.set_ylim(1.05 * ax2_min, 1)
     ax2.tick_params(axis='y', labelcolor='tab:green')
+    acc_color = 'tab:green'
     auc_color = 'tab:blue'
+    mcc_color = 'tab:purple'
 
     for label in history.history.keys():
         x = history.epoch
@@ -276,6 +312,8 @@ def plot_metrics(history: keras.callbacks.History,
             ax = ax2
             if 'accuracy' in label:
                 color = acc_color
+            elif 'MCC' in label:
+                color = mcc_color
             else:
                 color = auc_color
             if 'val' not in label:
@@ -286,12 +324,13 @@ def plot_metrics(history: keras.callbacks.History,
                 alpha=alpha,
                 label=label)
 
-    lines, labels = [], []
+    handles, labels = [], []
     for ax in fig.axes:
-        line, label = ax.get_legend_handles_labels()
-        lines.extend(line)
+        handle, label = ax.get_legend_handles_labels()
+        handles.extend(handle)
         labels.extend(label)
-    ax1.legend(lines, labels, loc='lower left')
+    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+    plt.legend(handles, labels, loc='lower left')
 
     ax1.set_title(f"optimizer={optimizer}, loss={loss}")
     fig.tight_layout()

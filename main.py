@@ -1,6 +1,5 @@
 import logging
 import shutil
-from pathlib import Path
 
 import tensorflow as tf
 
@@ -21,22 +20,26 @@ def main():
 
     # Load configurations
     config = utils.load_config()
-    config['logger'] = logger
+    config['run_params']['logger'] = logger
     logger.info('Loaded configurations')
 
     # Set loglevel
-    logger.setLevel(config['loglevel'])
+    logger.setLevel(config['debugging']['loglevel'])
     logger.log(logger.getEffectiveLevel(), '<--- Effective log level')
 
     # clear logs
-    if Path('logs').exists():
+    if config['debugging']['remove_logs'] and config['run_params'][
+            'logdir'].exists():
         shutil.rmtree('logs')
     logger.info('Cleared previous logs')
 
     # Log device placement to find out which devices your operations and tensors are assigned to
     try:
-        tf.debugging.set_log_device_placement(config['log_device_placement'])
-        logger.debug(f'Log device placement: {config["log_device_placement"]}')
+        tf.debugging.set_log_device_placement(
+            config['debugging']['log_device_placement'])
+        logger.debug(
+            f"Log device placement: {config['debugging']['log_device_placement']}"
+        )
     except RuntimeError:
         logger.warning('Log device placement: ', 'failed to set')
 
@@ -45,16 +48,16 @@ def main():
     logger.debug(f"Selected distribution strategy {dist_strat}")
 
     # Generate or load dataset
-    if not config['data_src'].exists():
+    if not config['run_params']['data_src'].exists():
         # TODO: implement cloud storage e.g. Google Drive
         logger.warning('Saving data to local storage')
-        gd.generate_dataset(n=config['data_n'],
-                            seed=config['seed'],
-                            dest=config['data_src'],
+        gd.generate_dataset(n=config['run_params']['data_n'],
+                            seed=config['run_params']['seed'],
+                            dest=config['run_params']['data_src'],
                             logger=logger)
     else:
         logger.info('Skipping data generation, file already exists: %s',
-                    config['data_src'])
+                    config['run_params']['data_src'])
 
     # Pre-process data
     X, y = ppd.preprocess_data(config, plot=False)
@@ -66,7 +69,6 @@ def main():
         f"Found best paramset: {best_hparams} with accuracy: {best_avg_acc}")
 
     # Train final model
-    # tf.config.experimental_run_functions_eagerly(True)
     # best_hparams = {'batch_size': 100, 'num_units': 500, 'optimizer': 'adam'}
     run.train_final_model(X,
                           y,
@@ -79,4 +81,5 @@ def main():
 
 
 if __name__ == '__main__':
+    # tf.config.experimental_run_functions_eagerly(True)
     main()

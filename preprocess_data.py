@@ -7,10 +7,11 @@ from sklearn.utils import shuffle
 
 
 def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
-    logger = config['logger']
+    logger = config['run_params']['logger']
+    processed = False
 
-    if str(config['data_src']) == 'data.csv':
-        df = pd.read_csv(config['data_src'])
+    if 'data' in config['run_params']['data_src'].name:
+        df = pd.read_csv(config['run_params']['data_src'])
 
         del df['ID']
         del df['date_time']
@@ -54,18 +55,19 @@ def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
 
         X = df.values
         y = y.values
-        X, y = shuffle(X, y, random_state=config['seed'])
+        X, y = shuffle(X, y, random_state=config['debugging']['seed'])
+        processed = True
 
-    if str(config['data_src']) == 'train_amazon.csv':
-        df = pd.read_csv(config['data_src'])
+    if 'amazon' in config['run_params']['data_src'].name:
+        df = pd.read_csv(config['run_params']['data_src'])
 
         # ProfileReport(df).to_file('amazon.html')
 
-        if logger:
-            logger.debug('\n' + str(df.info()))
-            logger.debug('\n' + str(df.describe()))
-            logger.debug('\n' + str(df.nunique()))
-            logger.debug(df.isnull().sum())
+        # if logger:
+        #     logger.debug('\n' + str(df.info()))
+        #     logger.debug('\n' + str(df.describe()))
+        #     logger.debug('\n' + str(df.nunique()))
+        #     logger.debug(df.isnull().sum())
 
         y = df.pop('ACTION')
 
@@ -91,10 +93,11 @@ def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
 
         X = df.values
         y = y.values
-        X, y = shuffle(X, y, random_state=config['seed'])
+        X, y = shuffle(X, y, random_state=config['debugging']['seed'])
+        processed = True
 
-    if str(config['data_src']) == 'train_titanic.csv':
-        df = pd.read_csv(config['data_src'])
+    if 'titanic' in config['run_params']['data_src'].name:
+        df = pd.read_csv(config['run_params']['data_src'])
 
         # ProfileReport(df).to_file('titanic.html')
 
@@ -149,10 +152,11 @@ def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
         #     logger.debug(X)
         y = y.to_numpy()
 
-        X, y = shuffle(X, y, random_state=config['seed'])
+        X, y = shuffle(X, y, random_state=config['debugging']['seed'])
+        processed = True
 
-    if 'X' not in locals() or 'y' not in locals():
-        raise ValueError(f'no parser for {config["data_src"]}')
+    if not processed:
+        raise ValueError(f'no parser for {config["run_params"]["data_src"]}')
 
     # expanded = np.ndarray(shape=(len(y), 2), dtype=np.int32)
     # for idx, prd in enumerate(y):

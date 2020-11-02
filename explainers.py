@@ -11,10 +11,10 @@ import utils
 
 # Explain instance exp_n using LIME
 def lime_explainer(X, y, config, paramset):
-    logger = config['logger']
-    final_model_path = config['logdir'] / 'final'
+    logger = config['run_params']['logger']
+    final_model_path = config['run_params']['logdir'] / 'final'
     ckpt_path = str(final_model_path / 'saved_model')
-    exp_n = config['exp_n']
+    exp_n = config['run_params']['exp_n']
 
     keras.backend.clear_session()
 
@@ -24,11 +24,10 @@ def lime_explainer(X, y, config, paramset):
         optimizer=paramset['optimizer'],
         # optimizer='SGD',
         loss='binary_crossentropy',
-        metrics=[
-            config['hyperparameters']['metric_accuracy'], utils.mcc_metric
-        ])
+        metrics=config['hyperparameters']['metrics'],
+    )
 
-    X, y = shuffle(X, y, random_state=config['seed'])
+    X, y = shuffle(X, y, random_state=config['debugging']['seed'])
 
     test_size = 0.2
     data_len = len(y)
@@ -90,7 +89,7 @@ def lime_explainer(X, y, config, paramset):
         ],
         categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
         class_names=['Survived', 'NOT Survived'],
-        random_state=config['seed'],
+        random_state=config['debugging']['seed'],
     )
     # logger.debug(y_test[exp_n])
     # logger.debug(X_test[exp_n])
@@ -110,6 +109,5 @@ def lime_explainer(X, y, config, paramset):
     # logger.debug(predict(X_test))
     opp = X_test[exp_n]
     # opp[1] = 0 # Change Sex to female
-    exp = explainer.explain_instance(opp,
-                                     predict_with_opposite_class_preds)
+    exp = explainer.explain_instance(opp, predict_with_opposite_class_preds)
     exp.save_to_file('explanation.html')
