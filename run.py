@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from statistics import mean
 
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
@@ -81,7 +82,7 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
             optimizer=paramset['optimizer'],
             # optimizer='SGD',
             loss='binary_crossentropy',
-            metrics=config['hyperparameters']['metrics'],
+            metrics=utils.parse_metrics(config['hyperparameters']['metrics']),
             # run_eagerly=True
         )
 
@@ -139,9 +140,13 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
                        'binary_crossentropy',
                        logdir_fig,
                        show=show)
-    accuracy = max(history.history['val_accuracy'])
 
-    return accuracy
+    metrics = {
+        metric: max(history.history[f'val_{metric}'])
+        for metric in config['hyperparameters']['metrics']
+    }
+
+    return model, metrics
 
 
 def tune_hparams(X, y, config, dist_strat):
@@ -151,23 +156,21 @@ def tune_hparams(X, y, config, dist_strat):
         for h in config['hyperparameters']['hparams']
     })
 
-    # Write hyperparameters
+    # Write hyperparameters to TensorBoard
     with tf.summary.create_file_writer(str(
             config['run_params']['logdir'])).as_default():
-        # metrics = []
-        # for metric in config['hyperparameters']['metrics']:
-        #     if isinstance(metric, str):
-        #         metrics.append(hp.Metric(metric, display_name=metric))
-        #     elif callable(metric):
-        #         metrics.append(hp.Metric(metric.__name__))
         hp.hparams_config(
             hparams=config['hyperparameters']['hparams'],
-            metrics=[hp.Metric("Accuracy")],
+            metrics=[
+                hp.Metric(metric)
+                for metric in config['hyperparameters']['metrics']
+            ],
         )
     logger.debug("Wrote hyperparameters")
 
+    # Run each hyperparameter configuration
     best_hparams = {}
-    best_avg_acc = 0.0
+    best_tune_metric_value = 0
     for session_num, paramset in enumerate(param_grid):
         run_name = f'run={session_num+1}'
         logger.info(f'--- Starting trial: {run_name}/{len(param_grid)}')
@@ -175,7 +178,10 @@ def tune_hparams(X, y, config, dist_strat):
 
         # Run k-fold cross-validation on paramset
         # no need to shuffle because of shuffle in preprocessing
-        accuracies = []
+        paramset_metrics = {
+            metric: []
+            for metric in config['hyperparameters']['metrics']
+        }
         for fold_num, (train_idx, test_idx) in enumerate(
                 StratifiedKFold(config['run_params']['cv_n_splits']).split(
                     X, y)):
@@ -212,23 +218,24 @@ def tune_hparams(X, y, config, dist_strat):
             # Resets all state generated previously by Keras
             keras.backend.clear_session()
 
-            accuracy = train_test_model(run_name,
-                                        X_train,
-                                        y_train,
-                                        X_test,
-                                        y_test,
-                                        paramset,
-                                        callbacks,
-                                        config,
-                                        dist_strat,
-                                        show=False)
-            accuracies.append(accuracy)
-        avg_acc = sum(accuracies) / len(accuracies)
-        if avg_acc > best_avg_acc:
-            best_avg_acc = avg_acc
-            best_hparams = paramset
-        logger.debug(accuracies)
-        logger.debug(avg_acc)
+            _, metrics = train_test_model(run_name,
+                                          X_train,
+                                          y_train,
+                                          X_test,
+                                          y_test,
+                                          paramset,
+                                          callbacks,
+                                          config,
+                                          dist_strat,
+                                          show=False)
+            for metric in metrics.keys():
+                paramset_metrics[metric].append(metrics[metric])
+
+        # Collect paramset statistics
+        paramset_stats = {
+            metric: mean(paramset_metrics[metric])
+            for metric in paramset_metrics.keys()
+        }
 
         # Write paramset run metrics to tensorboard
         logdir_paramset = config['run_params']['logdir'] / \
@@ -246,8 +253,17 @@ def tune_hparams(X, y, config, dist_strat):
         with tf.summary.create_file_writer(str(logdir_paramset)).as_default():
             # record the values used in this trial
             hp.hparams(hparams, trial_id=f'{run_name}_{paramset}')
-            tf.summary.scalar("Accuracy", avg_acc, step=1)
-    return best_hparams, best_avg_acc
+            for metric in paramset_stats.keys():
+                tf.summary.scalar(metric, paramset_stats[metric], step=1)
+
+        # Compare to previous best paramset and replace it when better
+        tune_metric_mean = paramset_stats[config['hyperparameters']
+                                          ['tune_metric']]
+        if abs(tune_metric_mean) > abs(best_tune_metric_value):
+            best_hparams = paramset
+            best_tune_metric_value = tune_metric_mean
+
+    return best_hparams
 
 
 def train_final_model(X, y, paramset, config, dist_strat):
@@ -270,13 +286,14 @@ def train_final_model(X, y, paramset, config, dist_strat):
     tensorboard = keras.callbacks.TensorBoard(log_dir=str(final_model_path),
                                               histogram_freq=1)
     ckpt_path = str(final_model_path / 'saved_model')
-    checkpoint = keras.callbacks.ModelCheckpoint(ckpt_path,
-                                                 monitor='val_MCC',
-                                                 verbose=0,
-                                                 save_best_only=True,
-                                                 save_weights_only=False,
-                                                 mode='max',
-                                                 save_freq='epoch')
+    checkpoint = keras.callbacks.ModelCheckpoint(
+        ckpt_path,
+        monitor=f"val_{config['hyperparameters']['tune_metric']}",
+        verbose=0,
+        save_best_only=True,
+        save_weights_only=False,
+        mode='max',
+        save_freq='epoch')
     callbacks = [
         tensorboard,
         checkpoint,
@@ -285,27 +302,19 @@ def train_final_model(X, y, paramset, config, dist_strat):
     # Resets all state generated previously by Keras
     keras.backend.clear_session()
 
-    train_test_model(run_name,
-                     X_train,
-                     y_train,
-                     X_val,
-                     y_val,
-                     paramset,
-                     callbacks,
-                     config,
-                     dist_strat,
-                     show=False)
+    model, _ = train_test_model(run_name,
+                                X_train,
+                                y_train,
+                                X_val,
+                                y_val,
+                                paramset,
+                                callbacks,
+                                config,
+                                dist_strat,
+                                show=False)
 
     # Save in .h5 format too for visualization compatibility
-    model = keras.models.load_model(ckpt_path, compile=False)
-    with dist_strat.scope():
-        model.compile(
-            optimizer=paramset['optimizer'],
-            # optimizer='SGD',
-            loss='binary_crossentropy',
-            metrics=config['hyperparameters']['metrics'],
-        )
-    # model.save(Path(ckpt_path) / 'saved_model.h5', save_format='h5')
+    model.save(Path(ckpt_path) / 'saved_model.h5', save_format='h5')
     # model = keras.models.load_model(str(Path(ckpt_path) / 'saved_model.h5'))
 
     logdir_figs = config['run_params']['logdir'] / 'figs'

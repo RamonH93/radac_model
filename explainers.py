@@ -1,6 +1,3 @@
-from pathlib import Path
-
-import tensorflow as tf
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
 from sklearn.utils import shuffle
@@ -24,7 +21,7 @@ def lime_explainer(X, y, config, paramset):
         optimizer=paramset['optimizer'],
         # optimizer='SGD',
         loss='binary_crossentropy',
-        metrics=config['hyperparameters']['metrics'],
+        metrics=utils.parse_metrics(config['hyperparameters']['metrics']),
     )
 
     X, y = shuffle(X, y, random_state=config['debugging']['seed'])

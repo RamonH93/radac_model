@@ -28,7 +28,7 @@ def main():
     logger.log(logger.getEffectiveLevel(), '<--- Effective log level')
 
     # clear logs
-    if config['debugging']['remove_logs'] and config['run_params'][
+    if config['debugging']['rm_old_logs'] and config['run_params'][
             'logdir'].exists():
         shutil.rmtree('logs')
     logger.info('Cleared previous logs')
@@ -64,12 +64,16 @@ def main():
     logger.info("Preprocessed data successfully")
 
     # Hyperparameter tuning
-    best_hparams, best_avg_acc = run.tune_hparams(X, y, config, dist_strat)
-    logger.info(
-        f"Found best paramset: {best_hparams} with accuracy: {best_avg_acc}")
+    if config['debugging']['tune_hparams']:
+        best_hparams = run.tune_hparams(X, y, config, dist_strat)
+        logger.info(
+            f"Found best paramset: {best_hparams}")
+    else:
+        best_hparams = {'batch_size': 100, 'num_units': 500, 'optimizer': 'adam'}
+        logger.info(
+            f"Hyperparameter tuning disabled: using default paramset {best_hparams}")
 
     # Train final model
-    # best_hparams = {'batch_size': 100, 'num_units': 500, 'optimizer': 'adam'}
     run.train_final_model(X,
                           y,
                           paramset=best_hparams,

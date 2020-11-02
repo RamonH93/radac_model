@@ -64,14 +64,18 @@ def load_config() -> dict:
         config['hyperparameters'][param] for param in config['hyperparameters']
         if 'hp_' in param
     ]
+    return config
 
+
+def parse_metrics(metrics) -> list:
+    parsed_metrics = metrics.copy()
     # Parse MCC metric
     try:
-        mcc_idx = config['hyperparameters']['metrics'].index("MCC")
-        config['hyperparameters']['metrics'][mcc_idx] = MCC
+        mcc_idx = metrics.index("MCC")
+        parsed_metrics[mcc_idx] = MCC
     except ValueError:
         pass
-    return config
+    return parsed_metrics
 
 
 def flatten(l):

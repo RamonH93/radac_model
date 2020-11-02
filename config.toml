@@ -9,11 +9,13 @@ logdir = "logs"
 hp_batch_size = [100]
 hp_num_units = [500]
 # hp_dropout = [0.1, 0.2] # must be array of 2 floats to pass minmax interval
-hp_optimizer = ["adam", "rmsprop"]
-metrics = ["accuracy", "AUC", "MCC"]
+hp_optimizer = ["adam", "rmsprop"] 
+metrics = ["accuracy", "AUC", "MCC"] 
+tune_metric = "MCC" # metric by which to determine best parameter set. MUST be in metrics list
 
 [debugging]
 log_device_placement = false 
 loglevel = "DEBUG" # any int or DEBUG (10), INFO (20), WARN (30), ERROR (40), CRITICAL (50)
-remove_logs = true 
-seed = 11
+rm_old_logs = true 
+seed = 11 
+tune_hparams = true
