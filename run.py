@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-from statistics import mean
 
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
@@ -44,35 +43,37 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
     ])
 
     # Experimental custom loss function
+    @tf.function
     def dice_coef_loss(y_pred, y_true, alpha=0.3, beta=0.7, smooth=1e-10):
-        return keras.backend.square(tf.subtract(y_true, y_pred))
+        labels = tf.cast(y_true, tf.float32)
+        predictions = tf.cast(y_pred, tf.float32)
+        # predictions = tf.cast(tf.greater(predictions, 0.5), tf.int64)
         # labels = keras.backend.flatten(labels)
         # predictions = keras.backend.flatten(predictions)
-        # truepos = tf.reduce_sum(labels * predictions)
-        # fp_and_fn = (alpha * tf.reduce_sum(predictions * (1 - labels))
-        #          + beta * tf.reduce_sum((1 - predictions) * labels))
+        # intersection = tf.cast(keras.backend.sum(labels * predictions), tf.float32)
+        # union = tf.cast(keras.backend.sum(labels) + keras.backend.sum(predictions), tf.float32)
+        # dice = keras.backend.mean((2. * intersection + smooth)/(union + smooth))
+        # print(dice.numpy())
+        # return dice
+        mse = keras.backend.square(tf.subtract(labels, predictions))
+        return mse
+        # # labels = keras.backend.flatten(y_true)
+        # # predictions = keras.backend.flatten(y_pred)
+        # # truepos = tf.reduce_sum(labels * predictions)
+        # # fp_and_fn = (alpha * tf.reduce_sum(predictions * (1 - labels)) +
+        # #              beta * tf.reduce_sum((1 - predictions) * labels))
+        # # return -(truepos + smooth) / (truepos + smooth + fp_and_fn)
 
-        # return -(truepos + smooth) / (truepos + smooth + fp_and_fn)
-        # print(y_true)
-        # print(y_pred)
-        # keras.backend.print_tensor(y_pred)
-        # y_true = tf.cast(y_true, 'int32')
-        # y_pred = tf.cast(y_pred, 'int32')
-        # print(y_true)
-        # print(y_pred)
-        # # y_true = keras.backend.flatten(y_true)
-        # # y_pred = keras.backend.flatten(y_pred)
         # smooth = 1.
-        # # intersection = keras.backend.sum(y_true, y_pred)
-        # intersection = tf.reduce_sum(y_true * y_pred)
-        # # print(intersection)
-        # l = tf.reduce_sum(y_true * y_true)
-        # r = tf.reduce_sum(y_pred * y_pred)
-        # # print(f'l: {l}')
-        # # print(f'r: {r}')
-        # dice = 1 - ((2 * intersection + smooth) / (l + r + smooth))
+        # intersection = tf.reduce_sum(labels * predictions)
+        # # # print(intersection)
+        # l = tf.reduce_sum(labels * labels)
+        # r = tf.reduce_sum(predictions * predictions)
+        # # # print(f'l: {l}')
+        # # # print(f'r: {r}')
+        # dice = 1. - ((2. * intersection + smooth) / (l + r + smooth))
         # dice = tf.reduce_mean(dice, name='dice_coef')
-        # return 1 - dice
+        # return 1. - dice
         # return 1 - (
         #     (2. * intersection + smooth) /
         #     (keras.backend.sum(y_true) + keras.backend.sum(y_pred) + smooth))
@@ -80,9 +81,9 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
     with dist_strat.scope():
         model.compile(
             optimizer=paramset['optimizer'],
-            # optimizer='SGD',
             loss='binary_crossentropy',
-            metrics=utils.parse_metrics(config['hyperparameters']['metrics']),
+            # loss=dice_coef_loss,
+            metrics=config['hyperparameters']['metrics'],
             # run_eagerly=True
         )
 
@@ -232,10 +233,13 @@ def tune_hparams(X, y, config, dist_strat):
                 paramset_metrics[metric].append(metrics[metric])
 
         # Collect paramset statistics
-        paramset_stats = {
-            metric: mean(paramset_metrics[metric])
-            for metric in paramset_metrics.keys()
-        }
+        paramset_stats = {}
+        for metric in paramset_metrics.keys():
+            paramset_stats[metric] = np.mean(paramset_metrics[metric])
+            logger.info(
+                f'Mean {metric} score {np.mean(paramset_metrics[metric]):.3f} '
+                f'± {np.std(paramset_metrics[metric]):.3f}'
+            )
 
         # Write paramset run metrics to tensorboard
         logdir_paramset = config['run_params']['logdir'] / \
@@ -253,8 +257,8 @@ def tune_hparams(X, y, config, dist_strat):
         with tf.summary.create_file_writer(str(logdir_paramset)).as_default():
             # record the values used in this trial
             hp.hparams(hparams, trial_id=f'{run_name}_{paramset}')
-            for metric in paramset_stats.keys():
-                tf.summary.scalar(metric, paramset_stats[metric], step=1)
+            for metric, mean in paramset_stats.items():
+                tf.summary.scalar(metric, mean, step=1)
 
         # Compare to previous best paramset and replace it when better
         tune_metric_mean = paramset_stats[config['hyperparameters']
@@ -281,6 +285,12 @@ def train_final_model(X, y, paramset, config, dist_strat):
     X_val, y_val = X[train_split_idx:test_split_idx], y[
         train_split_idx:test_split_idx]
     X_test, y_test = X[test_split_idx:], y[test_split_idx:]
+
+    # Equal class distribution in test set
+    min_idx = np.argwhere(y_test == 0).ravel()
+    maj_idx = np.argwhere(y_test == 1)[:len(min_idx)].ravel()
+    X_test = X_test[np.concatenate((min_idx, maj_idx))]
+    y_test = y_test[np.concatenate((min_idx, maj_idx))]
 
     # Define the Keras callbacks
     tensorboard = keras.callbacks.TensorBoard(log_dir=str(final_model_path),
@@ -313,21 +323,34 @@ def train_final_model(X, y, paramset, config, dist_strat):
                                 dist_strat,
                                 show=False)
 
+    model = keras.models.load_model(ckpt_path, compile=True)
     # Save in .h5 format too for visualization compatibility
     model.save(Path(ckpt_path) / 'saved_model.h5', save_format='h5')
     # model = keras.models.load_model(str(Path(ckpt_path) / 'saved_model.h5'))
 
     logdir_figs = config['run_params']['logdir'] / 'figs'
     Path.mkdir(logdir_figs, parents=True, exist_ok=True)
-    logdir_fig = logdir_figs / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}'\
-                               f'-{run_name}-test-model.png'
+
+    logdir_fig = (
+        logdir_figs /
+        f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{run_name}-test-model.png'
+    )
     keras.utils.plot_model(model, logdir_fig, show_shapes=True, rankdir='LR')
 
     y_pred = model.predict(X_test)
-    logdir_figs = config['run_params']['logdir'] / 'figs'
-    Path.mkdir(logdir_figs, parents=True, exist_ok=True)
-    logdir_fig = logdir_figs / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{run_name}-test-cm.png'
-    utils.plot_cm(y_test, y_pred > 0.5, logdir_fig, paramset, p=0.5)
 
     logdir_fig = logdir_figs / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{run_name}-test-roc.png'
-    utils.plot_roc(y_test, y_pred, logdir_fig, paramset)
+    discrimination_threshold = utils.plot_roc(y_test, y_pred, logdir_fig,
+                                              paramset)
+
+    logdir_fig = logdir_figs / \
+        f'{datetime.now().strftime("%Y%m%d-%H%M%S.%f")}-{run_name}-test-cm.png'
+    utils.plot_cm(y_test,
+                  y_pred > discrimination_threshold,
+                  logdir_fig,
+                  paramset,
+                  p=discrimination_threshold)
+
+    logdir_fig = logdir_figs / \
+        f'{datetime.now().strftime("%Y%m%d-%H%M%S.%f")}-{run_name}-test-cm.png'
+    utils.plot_cm(y_test, y_pred > 0.5, logdir_fig, paramset, p=0.5)

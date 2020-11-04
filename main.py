@@ -33,6 +33,12 @@ def main():
         shutil.rmtree('logs')
     logger.info('Cleared previous logs')
 
+
+    #* Set TensorFlow configurations
+
+    # Run functions eagerly so we can access tensor numpy arrays
+    tf.config.experimental_run_functions_eagerly(True)
+
     # Log device placement to find out which devices your operations and tensors are assigned to
     try:
         tf.debugging.set_log_device_placement(
@@ -43,9 +49,13 @@ def main():
     except RuntimeError:
         logger.warning('Log device placement: ', 'failed to set')
 
+    # Add MCC so we can use it as a string
+    tf.keras.utils.get_custom_objects().update({'MCC': utils.MatthewsCorrelationCoefficient})
+
     # Select CPU/GPU/TPU distribution strategy
     dist_strat = utils.dist_strategy(logger=logger)
     logger.debug(f"Selected distribution strategy {dist_strat}")
+
 
     # Generate or load dataset
     if not config['run_params']['data_src'].exists():
@@ -66,12 +76,16 @@ def main():
     # Hyperparameter tuning
     if config['debugging']['tune_hparams']:
         best_hparams = run.tune_hparams(X, y, config, dist_strat)
-        logger.info(
-            f"Found best paramset: {best_hparams}")
+        logger.info(f"Found best paramset: {best_hparams}")
     else:
-        best_hparams = {'batch_size': 100, 'num_units': 500, 'optimizer': 'adam'}
+        best_hparams = {
+            'batch_size': 100,
+            'num_units': 500,
+            'optimizer': 'adam'
+        }
         logger.info(
-            f"Hyperparameter tuning disabled: using default paramset {best_hparams}")
+            f"Hyperparameter tuning disabled: using default paramset {best_hparams}"
+        )
 
     # Train final model
     run.train_final_model(X,
@@ -81,9 +95,9 @@ def main():
                           dist_strat=dist_strat)
 
     # Explain instance exp_n using LIME
-    exp.lime_explainer(X, y, config, best_hparams)
+    if config['debugging']['explain_instance']:
+        exp.lime_explainer(X, y, config)
 
 
 if __name__ == '__main__':
-    # tf.config.experimental_run_functions_eagerly(True)
     main()

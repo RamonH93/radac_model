@@ -7,7 +7,7 @@ import utils
 
 
 # Explain instance exp_n using LIME
-def lime_explainer(X, y, config, paramset):
+def lime_explainer(X, y, config):
     logger = config['run_params']['logger']
     final_model_path = config['run_params']['logdir'] / 'final'
     ckpt_path = str(final_model_path / 'saved_model')
@@ -16,13 +16,7 @@ def lime_explainer(X, y, config, paramset):
     keras.backend.clear_session()
 
     # model = keras.models.load_model(final_model_path)
-    model = keras.models.load_model(ckpt_path, compile=False)
-    model.compile(
-        optimizer=paramset['optimizer'],
-        # optimizer='SGD',
-        loss='binary_crossentropy',
-        metrics=utils.parse_metrics(config['hyperparameters']['metrics']),
-    )
+    model = keras.models.load_model(ckpt_path, compile=True)
 
     X, y = shuffle(X, y, random_state=config['debugging']['seed'])
 
@@ -68,7 +62,7 @@ def lime_explainer(X, y, config, paramset):
 
     explainer = LimeTabularExplainer(
         training_data=X_train,
-        # feature_names=[f'f_{x}' for x in range(len(X_train[0]))],
+        feature_names=[f'f_{x}' for x in range(len(X_train[0]))],
         # feature_names=[
         #     'RESOURCE',
         #     'MGR_ID',
@@ -80,13 +74,13 @@ def lime_explainer(X, y, config, paramset):
         #     'ROLE_FAMILY',
         #     'ROLE_CODE'
         #     ],
-        feature_names=[
-            'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin',
-            'Embarked_C', 'Embarked_Q', 'Embarked_S'
-        ],
-        categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
-        class_names=['Survived', 'NOT Survived'],
-        random_state=config['debugging']['seed'],
+        # feature_names=[
+        #     'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin',
+        #     'Embarked_C', 'Embarked_Q', 'Embarked_S'
+        # ],
+        # categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
+        # class_names=['Survived', 'NOT Survived'],
+        # random_state=config['debugging']['seed'],
     )
     # logger.debug(y_test[exp_n])
     # logger.debug(X_test[exp_n])

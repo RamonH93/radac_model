@@ -67,17 +67,6 @@ def load_config() -> dict:
     return config
 
 
-def parse_metrics(metrics) -> list:
-    parsed_metrics = metrics.copy()
-    # Parse MCC metric
-    try:
-        mcc_idx = metrics.index("MCC")
-        parsed_metrics[mcc_idx] = MCC
-    except ValueError:
-        pass
-    return parsed_metrics
-
-
 def flatten(l):
     for el in l:
         if isinstance(
@@ -124,19 +113,53 @@ def rename(newname):
     return decorator
 
 
-@tf.function
-def MCC(y_true, y_pred):
-    predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32)
-    true_pos = tf.math.count_nonzero(predicted * y_true)
-    true_neg = tf.math.count_nonzero((predicted - 1) * (y_true - 1))
-    false_pos = tf.math.count_nonzero(predicted * (y_true - 1))
-    false_neg = tf.math.count_nonzero((predicted - 1) * y_true)
-    x = tf.cast((true_pos + false_pos) * (true_pos + false_neg) *
-                (true_neg + false_pos) * (true_neg + false_neg), tf.float32)
-    mcc = tf.cast((true_pos * true_neg) -
-                  (false_pos * false_neg), tf.float32) / tf.sqrt(x)
-    mcc = tf.where(tf.math.is_nan(mcc), 0., mcc)
-    return mcc
+class MatthewsCorrelationCoefficient(tf.keras.metrics.Metric):
+    def __init__(self, name='matthews_correlation_coefficient', **kwargs):
+        super(MatthewsCorrelationCoefficient, self).__init__(name=name,
+                                                             **kwargs)
+        self.true_pos = self.add_weight(name='true_pos', initializer='zeros')
+        self.true_neg = self.add_weight(name='true_neg', initializer='zeros')
+        self.false_pos = self.add_weight(name='false_pos', initializer='zeros')
+        self.false_neg = self.add_weight(name='false_neg', initializer='zeros')
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        prediction = tf.cast(tf.greater(y_pred, 0.5), tf.float32)
+        label = tf.cast(y_true, tf.float32)
+
+        true_pos = tf.math.count_nonzero(prediction * label)
+        true_neg = tf.math.count_nonzero((prediction - 1) * (label - 1))
+        false_pos = tf.math.count_nonzero(prediction * (label - 1))
+        false_neg = tf.math.count_nonzero((prediction - 1) * label)
+
+        true_pos = tf.cast(true_pos, tf.float32)
+        true_neg = tf.cast(true_neg, tf.float32)
+        false_pos = tf.cast(false_pos, tf.float32)
+        false_neg = tf.cast(false_neg, tf.float32)
+
+        if sample_weight is not None:
+            sample_weight = tf.cast(sample_weight, self.dtype)
+            tp_sample_weight = tf.broadcast_to(sample_weight, true_pos.shape)
+            tn_sample_weight = tf.broadcast_to(sample_weight, true_neg.shape)
+            fp_sample_weight = tf.broadcast_to(sample_weight, false_pos.shape)
+            fn_sample_weight = tf.broadcast_to(sample_weight, false_neg.shape)
+
+            true_pos = tf.multiply(true_pos, tp_sample_weight)
+            true_neg = tf.multiply(true_neg, tn_sample_weight)
+            false_pos = tf.multiply(false_pos, fp_sample_weight)
+            false_neg = tf.multiply(false_neg, fn_sample_weight)
+        self.true_pos.assign_add(true_pos, tf.float32)
+        self.true_neg.assign_add(true_neg, tf.float32)
+        self.false_pos.assign_add(false_pos, tf.float32)
+        self.false_neg.assign_add(false_neg, tf.float32)
+
+    def result(self):
+        x = tf.cast((self.true_pos + self.false_pos) * (self.true_pos + self.false_neg) *
+                    (self.true_neg + self.false_pos) * (self.true_neg + self.false_neg),
+                    tf.float32)
+        mcc = tf.cast((self.true_pos * self.true_neg) -
+                      (self.false_pos * self.false_neg), tf.float32) / tf.sqrt(x)
+        mcc = tf.where(tf.math.is_nan(mcc), 0., mcc)
+        return mcc
 
 
 def plot_cm(y_test, y_pred, logdir_fig, paramset, p=0.5):
@@ -144,12 +167,10 @@ def plot_cm(y_test, y_pred, logdir_fig, paramset, p=0.5):
                 cmap="YlGnBu",
                 annot=True,
                 fmt="d")
-    plt.title(
-        f'{paramset}\n'\
-        f'Confusion matrix @{p}, '\
-        f'n={len(y_test)}, '\
-        f'Accuracy={round(accuracy_score(y_test, y_pred), 2)}'
-    )
+    plt.title(f'{paramset}\n'
+              f'Confusion matrix @{p:.2f}, '
+              f'n={len(y_test)}, '
+              f'Accuracy={round(accuracy_score(y_test, y_pred), 2)}')
     plt.ylabel('Actual label')
     plt.xlabel('Predicted label')
     plt.savefig(logdir_fig)
@@ -264,6 +285,7 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
     plt.xlabel('False Positive Rate: FP/(FP+TN)')
     plt.savefig(logdir_fig)
     plt.close()
+    return opt_threshold
 
 
 def plot_metrics(history: keras.callbacks.History,

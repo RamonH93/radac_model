@@ -26,7 +26,7 @@ def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
                 del df[col]
                 df = df.join(one_hot)
 
-        # ProfileReport(df).to_file('pr_dod.html')
+        # ProfileReport(df).to_file('pr_tmp.html')
 
         y = df.pop('access_granted')
 
@@ -61,7 +61,10 @@ def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
     if 'amazon' in config['run_params']['data_src'].name:
         df = pd.read_csv(config['run_params']['data_src'])
 
-        # ProfileReport(df).to_file('amazon.html')
+
+        df.drop(['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'],
+                inplace=True,
+                axis=1)
 
         # if logger:
         #     logger.debug('\n' + str(df.info()))
@@ -70,10 +73,20 @@ def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
         #     logger.debug(df.isnull().sum())
 
         y = df.pop('ACTION')
-
         if plot:
             y.value_counts().plot(kind='pie')
             plt.show()
+
+        for col in df.columns:
+            one_hot = pd.get_dummies(df[col], prefix=col)
+            df.drop(col, inplace=True, axis=1)
+            df = df.join(one_hot)
+
+        # from sklearn.preprocessing import OneHotEncoder
+        # ohe = OneHotEncoder(sparse=True, dtype=np.float32, handle_unknown='ignore')
+        # df = ohe.fit_transform(df.values)
+        # print(df)
+        # ProfileReport(df, minimal=True).to_file('amazon_drop_ohe.html')
 
         # TPUs cant handle uint8, GPU cant handle uint32
         # df = df.astype(np.int32)
