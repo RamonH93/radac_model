@@ -1,0 +1,17 @@
+scikit-learn
+scipy==1.4.*
+tensorflow-estimator==2.1.*
+tensorflow-cpu==2.1.0
+matplotlib
+pydot
+graphviz
+numpy<=1.19.3
+pandas
+pandas-profiling>=2.6.0
+faker
+zeep
+xmltodict
+toml
+flask
+seaborn
+lime

@@ -3,7 +3,9 @@ logs/*
 *.csv
 *.lnk
 *.html
-
+webapp/saved_model/*
+!webapp/static/*
+!webapp/templates/*
 
 ########## VS Code .gitignore ##########
 

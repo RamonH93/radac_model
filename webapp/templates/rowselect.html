@@ -1,0 +1,49 @@
+<html>
+
+<head>
+    <title></title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <h1>Select and Explore Sample</h1>
+    <h2>Row Selection</h2>
+    <form id="rowselection" action="/rowselect" method="POST">
+        <table style="margin-left: 20px;">
+            <tr>
+                <td>Row index:</td>
+                <td><input type="number" id="sample" name="sample" value="{{index}}" min="0" style="font-size: 14px; width: 50px;"></td>
+                <td><input type="submit" id="btnSubmit" value="Submit"></td>
+            </tr>
+        </table>
+    </form>
+</body>
+
+<script>
+    function XMLPost(form) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", form.action, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({
+            sample: document.getElementById("sample").value
+        }));
+    }
+    let form = document.getElementById("rowselection")
+    form.addEventListener("submit", evt => {
+        event.preventDefault();
+        XMLPost(form)
+        delayedReload('samplemod', 250);
+        delayedReload('expo', 250)
+    })
+    function delayedReload(iframe, delay) {
+        setTimeout(() => { reload(iframe) }, delay)
+    }
+    function reload(iframe) {
+        if (iframe == 'expo' || iframe == 'expm') {
+            parent.document.getElementById(iframe).src = "/explanation" + "/" + String(Math.floor(Math.random() * 100000));
+        } else {
+            parent.document.getElementById(iframe).src = parent.document.getElementById(iframe).src;
+        }
+    }
+</script>
+</html>

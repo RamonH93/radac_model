@@ -1,0 +1,71 @@
+<html>
+
+<head>
+    <title></title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+
+<body>
+    <h2>Feature Selection (Row: {{rowidx}})</h2>
+    <h3>{{current_time}}</h3>
+    <form id="samplemod" action="/samplemod" method="POST">
+        <table style="margin-left: 20px;">
+            <th>
+                <tr>
+                    <td>Feature</td>
+                    <td>Original</td>
+                    <td style="width: 50px;">Modified</td>
+                </tr>
+            </th>
+
+            {%for i in range(0, len)%}
+            <tr>
+                <td>{{feature_names[i]}}</td>
+                <td>{{instance[i]}}</td>
+                <td><input type="number" id="{{i}}" name="{{i}}" value="{{instance[i]}}" min="0"
+                        style="font-size: 14px; width: 50px;"></td>
+            </tr>
+            {%endfor%}
+            <tr>
+                <td></td>
+                <td></td>
+                <td>
+                    <input type="button" id="rstButton" onclick="reload('samplemod')" value="Reset">
+                    <input type="submit" id="btnSubmit" value="Submit">
+                </td>
+            </tr>
+        </table>
+    </form>
+</body>
+
+<script>
+    function XMLPost(form) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", form.action, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        jsonstr = {};
+        for (var i = 0; i < {{ len }}; i++) { 
+            jsonstr[i] = document.getElementById(i).value;
+        };
+        xhr.send(JSON.stringify(jsonstr));
+    }
+    let form = document.getElementById("samplemod")
+    form.addEventListener("submit", evt => {
+        event.preventDefault();
+        XMLPost(form)
+        delayedReload('expm', 250);
+    })
+    function delayedReload(iframe, delay) {
+        setTimeout(() => { reload(iframe) }, delay)
+    }
+    function reload(iframe) {
+        if (iframe == 'expo' || iframe == 'expm') {
+            parent.document.getElementById(iframe).src = "/explanation" + "/" + String(Math.floor(Math.random() * 100000));
+        } else {
+            parent.document.getElementById(iframe).src = parent.document.getElementById(iframe).src;
+        }
+    }
+</script>
+
+</html>
