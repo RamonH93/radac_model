@@ -1,5 +1,6 @@
 import logging
 import threading
+import os
 from pathlib import Path
 
 from flask import Flask, render_template, request, send_from_directory
@@ -20,6 +21,40 @@ class GlobalParams:
     def get_params(self):
         return self.params
 
+init_params = {}
+de = threading.Event()
+me = threading.Event()
+init_params['de'] = de
+init_params['me'] = me
+config = utils.load_config()
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler())
+logger.handlers[0].setFormatter(
+    logging.Formatter("({asctime}) {levelname:>8}: {message}", style='{'))
+logger.setLevel(config['debugging']['loglevel'])
+logger.log(logger.getEffectiveLevel(), '<--- Effective log level')
+config['run_params']['logger'] = logger
+init_params['config'] = config
+X, y = ppd.preprocess_data(config, plot=False)
+init_params['X'] = X
+init_params['y'] = y
+exp_n = config['run_params']['exp_n']
+init_params['instance'] = X[exp_n]
+init_params['mod'] = X[exp_n]
+init_params['to_explain'] = 'original'
+init_params['feature_names'] = [
+    'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin', 'Embarked_C',
+    'Embarked_Q', 'Embarked_S'
+]
+gp = GlobalParams(init_params)
+
+process_name = f'App-{os.getpid()}'
+thread_name = f'ExplainerDaemon-{np.random.randint(10000)}'
+threading.Thread(target=exp.exp_daemon,
+                 name=thread_name,
+                 args=(gp, ),
+                 daemon=True).start()
+logger.info(f'{process_name} spawned {thread_name}')
 
 app = Flask(__name__, template_folder=str(Path(__file__).parent / 'templates'))
 
@@ -78,7 +113,6 @@ def samplemod():
 
 @app.route("/explanation")
 def explanation():
-    params = gp.get_params()
     logger.debug('/explanation')
 
     de.set()  # send event to wake exp_daemon to generate new explanation
@@ -99,34 +133,4 @@ def favicon():
                                mimetype='image/vnd.microsoft.icon')
 
 
-init_params = {}
-de = threading.Event()
-me = threading.Event()
-init_params['de'] = de
-init_params['me'] = me
-config = utils.load_config()
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.StreamHandler())
-logger.handlers[0].setFormatter(
-    logging.Formatter("({asctime}) {levelname:>8}: {message}", style='{'))
-logger.setLevel(config['debugging']['loglevel'])
-logger.log(logger.getEffectiveLevel(), '<--- Effective log level')
-config['run_params']['logger'] = logger
-init_params['config'] = config
-X, y = ppd.preprocess_data(config, plot=False)
-init_params['X'] = X
-init_params['y'] = y
-exp_n = config['run_params']['exp_n']
-init_params['instance'] = X[exp_n]
-init_params['mod'] = X[exp_n]
-init_params['to_explain'] = 'original'
-init_params['feature_names'] = [
-    'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin', 'Embarked_C',
-    'Embarked_Q', 'Embarked_S'
-]
-gp = GlobalParams(init_params)
-threading.Thread(target=exp.exp_daemon,
-                 name='ExplainerDaemon',
-                 args=(gp, ),
-                 daemon=True).start()
-app.run(debug=True, use_reloader=False)
+# app.run(debug=True, use_reloader=False)

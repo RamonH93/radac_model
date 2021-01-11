@@ -13,9 +13,9 @@ import utils
 # Explain instance exp_n using LIME
 def exp_daemon(gp):
     # Fixes rare memory error
-    # physical_devices = tf.config.list_physical_devices('GPU')
-    # if len(physical_devices) > 0:
-    #     tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if len(physical_devices) > 0:
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     params = gp.get_params()
     de = params['de']

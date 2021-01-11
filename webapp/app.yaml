@@ -1,4 +1,7 @@
 runtime: python37
+env: standard
+instance_class: F4_1G
+entrypoint: gunicorn -b :$PORT --workers 4 --threads 2 app:app
 
 
 handlers:

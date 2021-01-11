@@ -1,9 +1,8 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
 from sklearn.utils import shuffle
 from tensorflow import keras
-
-import utils
 
 
 # Explain instance exp_n using LIME
@@ -25,7 +24,7 @@ def lime_explainer(X, y, config):
     split_len = int(test_size * data_len)
     train_split_idx = data_len - 2 * split_len
     test_split_idx = data_len - split_len
-    X_train, y_train = X[:train_split_idx], y[:train_split_idx]
+    X_train, _ = X[:train_split_idx], y[:train_split_idx]
     # X_val, y_val = X[train_split_idx:test_split_idx], y[train_split_idx:test_split_idx]
     X_test, y_test = X[test_split_idx:], y[test_split_idx:]
 
@@ -62,7 +61,7 @@ def lime_explainer(X, y, config):
 
     explainer = LimeTabularExplainer(
         training_data=X_train,
-        feature_names=[f'f_{x}' for x in range(len(X_train[0]))],
+        # feature_names=[f'f_{x}' for x in range(len(X_train[0]))],
         # feature_names=[
         #     'RESOURCE',
         #     'MGR_ID',
@@ -73,18 +72,18 @@ def lime_explainer(X, y, config):
         #     'ROLE_FAMILY_DESC',
         #     'ROLE_FAMILY',
         #     'ROLE_CODE'
-        #     ],
-        # feature_names=[
-        #     'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin',
-        #     'Embarked_C', 'Embarked_Q', 'Embarked_S'
-        # ],
-        # categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
-        # class_names=['Survived', 'NOT Survived'],
-        # random_state=config['debugging']['seed'],
+        #     ],['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'
+        feature_names=[
+            'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin',
+            'Embarked_C', 'Embarked_Q', 'Embarked_S'
+        ],
+        categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
+        class_names=['Survived', 'NOT Survived'],
+        random_state=config['debugging']['seed'],
     )
     # logger.debug(y_test[exp_n])
     # logger.debug(X_test[exp_n])
-    # logger.debug(model.predict(np.array([X_test[exp_n]])))
+    logger.debug(model.predict(np.array([X_test[exp_n]]))[0][0])
     y_compl = np.ndarray(shape=(len(y_test), 2), dtype=np.int32)
     for idx, lbl in enumerate(y_test):
         y_compl[idx] = np.array((lbl, 1 - lbl))
@@ -101,4 +100,6 @@ def lime_explainer(X, y, config):
     opp = X_test[exp_n]
     # opp[1] = 0 # Change Sex to female
     exp = explainer.explain_instance(opp, predict_with_opposite_class_preds)
+    print(exp.as_list())
+    plt.show(exp.as_pyplot_figure())
     exp.save_to_file('explanation.html')

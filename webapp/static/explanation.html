@@ -37089,25 +37089,25 @@
 /***/ })
 /******/ ]);
 //# sourceMappingURL=bundle.js.map </script></head><body>
-        <div class="lime top_div" id="top_divWFCRASD7RVOGYKO"></div>
+        <div class="lime top_div" id="top_divEQM48J7MAIIE9QH"></div>
         
         <script>
-        var top_div = d3.select('#top_divWFCRASD7RVOGYKO').classed('lime top_div', true);
+        var top_div = d3.select('#top_divEQM48J7MAIIE9QH').classed('lime top_div', true);
         
             var pp_div = top_div.append('div')
                                 .classed('lime predict_proba', true);
             var pp_svg = pp_div.append('svg').style('width', '100%');
-            var pp = new lime.PredictProba(pp_svg, ["Survived", "NOT Survived"], [0.9712024927139282, 0.028797507286071777]);
+            var pp = new lime.PredictProba(pp_svg, ["Survived", "NOT Survived"], [0.2885609269142151, 0.7114390730857849]);
             
         
         var exp_div;
             var exp = new lime.Explanation(["Survived", "NOT Survived"]);
         
                 exp_div = top_div.append('div').classed('lime explanation', true);
-                exp.show([["Sex <= 0.00", -0.5281299605315435], ["Embarked_C <= 0.00", 0.15781133287868165], ["Embarked_S <= 0.00", 0.13354463373675743], ["Embarked_Q > 0.00", -0.12038059659870655], ["Parch <= 0.00", 0.1040818475756388], ["AgeBin <= 1.00", -0.09029766839173915], ["1.00 < FareBin <= 2.00", -0.06479293512726683], ["0.00 < SibSp <= 1.00", 0.06156480137620955], ["2.00 < Pclass <= 3.00", 0.058456064641886414]], 1, exp_div);
+                exp.show([["0.00 < Sex <= 1.00", 0.5276474490267243], ["Embarked_C <= 0.00", 0.15564099380687638], ["Embarked_S <= 0.00", 0.1380863743735897], ["Parch <= 0.00", 0.12887185554680225], ["Embarked_Q > 0.00", -0.11152935950361557], ["AgeBin <= 1.00", -0.0952845708230988], ["0.00 < SibSp <= 1.00", 0.07286096424961037], ["1.00 < FareBin <= 2.00", -0.06667640155667551], ["2.00 < Pclass <= 3.00", 0.05166542955928541]], 1, exp_div);
                 
         var raw_div = top_div.append('div');
-            exp.show_raw_tabular([["Sex", "0.00", -0.5281299605315435], ["Embarked_C", "0.00", 0.15781133287868165], ["Embarked_S", "0.00", 0.13354463373675743], ["Embarked_Q", "1.00", -0.12038059659870655], ["Parch", "0.00", 0.1040818475756388], ["AgeBin", "1.00", -0.09029766839173915], ["FareBin", "2.00", -0.06479293512726683], ["SibSp", "1.00", 0.06156480137620955], ["Pclass", "3.00", 0.058456064641886414]], 1, raw_div);
+            exp.show_raw_tabular([["Sex", "1.00", 0.5276474490267243], ["Embarked_C", "0.00", 0.15564099380687638], ["Embarked_S", "0.00", 0.1380863743735897], ["Parch", "0.00", 0.12887185554680225], ["Embarked_Q", "1.00", -0.11152935950361557], ["AgeBin", "1.00", -0.0952845708230988], ["SibSp", "1.00", 0.07286096424961037], ["FareBin", "2.00", -0.06667640155667551], ["Pclass", "3.00", 0.05166542955928541]], 1, raw_div);
         
         </script>
         </body></html>

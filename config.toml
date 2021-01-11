@@ -14,9 +14,9 @@ metrics = ["accuracy", "AUC", "MCC"]
 tune_metric = "MCC" # metric by which to determine best parameter set. MUST be in metrics list
 
 [debugging]
-explain_instance = false
+explain_instance = true
 log_device_placement = false 
 loglevel = "DEBUG" # any int or DEBUG (10), INFO (20), WARN (30), ERROR (40), CRITICAL (50)
 rm_old_logs = false 
-seed = 11 
+seed = 101 
 tune_hparams = false

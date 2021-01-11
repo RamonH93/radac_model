@@ -33,11 +33,10 @@ def main():
         shutil.rmtree('logs')
     logger.info('Cleared previous logs')
 
-
     #* Set TensorFlow configurations
 
     # Run functions eagerly so we can access tensor numpy arrays
-    tf.config.experimental_run_functions_eagerly(True)
+    # tf.config.experimental_run_functions_eagerly(True)
 
     # Log device placement to find out which devices your operations and tensors are assigned to
     try:
@@ -50,12 +49,12 @@ def main():
         logger.warning('Log device placement: ', 'failed to set')
 
     # Add MCC so we can use it as a string
-    tf.keras.utils.get_custom_objects().update({'MCC': utils.MatthewsCorrelationCoefficient})
+    tf.keras.utils.get_custom_objects().update(
+        {'MCC': utils.MatthewsCorrelationCoefficient})
 
     # Select CPU/GPU/TPU distribution strategy
     dist_strat = utils.dist_strategy(logger=logger)
     logger.debug(f"Selected distribution strategy {dist_strat}")
-
 
     # Generate or load dataset
     if not config['run_params']['data_src'].exists():

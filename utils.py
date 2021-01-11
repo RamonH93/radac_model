@@ -153,11 +153,13 @@ class MatthewsCorrelationCoefficient(tf.keras.metrics.Metric):
         self.false_neg.assign_add(false_neg, tf.float32)
 
     def result(self):
-        x = tf.cast((self.true_pos + self.false_pos) * (self.true_pos + self.false_neg) *
-                    (self.true_neg + self.false_pos) * (self.true_neg + self.false_neg),
-                    tf.float32)
-        mcc = tf.cast((self.true_pos * self.true_neg) -
-                      (self.false_pos * self.false_neg), tf.float32) / tf.sqrt(x)
+        x = tf.cast((self.true_pos + self.false_pos) *
+                    (self.true_pos + self.false_neg) *
+                    (self.true_neg + self.false_pos) *
+                    (self.true_neg + self.false_neg), tf.float32)
+        mcc = tf.cast(
+            (self.true_pos * self.true_neg) -
+            (self.false_pos * self.false_neg), tf.float32) / tf.sqrt(x)
         mcc = tf.where(tf.math.is_nan(mcc), 0., mcc)
         return mcc
 

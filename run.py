@@ -5,6 +5,7 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from joblib import dump
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import ParameterGrid, StratifiedKFold
 from sklearn.utils import compute_class_weight
@@ -14,9 +15,7 @@ from tensorflow import keras
 import utils
 
 
-def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callbacks, config, dist_strat, show=False):  # pylint: disable=line-too-long
-    logger = config['run_params']['logger']
-
+def create_model(X_train, paramset, config, dist_strat):
     model = keras.models.Sequential([
         keras.Input(shape=(X_train.shape[1], ), name='inputs'),
         # keras.Input(shape=list(dataset.take(1).as_numpy_iterator())[0][0].shape)) #tfdataset
@@ -86,7 +85,21 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
             metrics=config['hyperparameters']['metrics'],
             # run_eagerly=True
         )
+    return model
 
+
+def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callbacks, config, dist_strat, show=False):  # pylint: disable=line-too-long
+    logger = config['run_params']['logger']
+
+    model = create_model(X_train, paramset, config, dist_strat)
+    clf = keras.wrappers.scikit_learn.KerasClassifier(build_fn=create_model)
+
+    clf.fit(X_train, y_train)
+    dump(
+        clf,
+        str(config['run_params']['logdir'] / 'final' / 'saved_model' /
+            'saved_model.joblib'))
+            
     class_weight = compute_class_weight('balanced',
                                         classes=np.unique(y_train),
                                         y=y_train)
@@ -101,6 +114,7 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
         callbacks=callbacks,
         validation_data=(X_test, y_test),
         shuffle=True)
+
 
     # logger.info(model.evaluate(X_test, y_test))
     y_pred = model.predict(X_test)
@@ -238,8 +252,7 @@ def tune_hparams(X, y, config, dist_strat):
             paramset_stats[metric] = np.mean(paramset_metrics[metric])
             logger.info(
                 f'Mean {metric} score {np.mean(paramset_metrics[metric]):.3f} '
-                f'± {np.std(paramset_metrics[metric]):.3f}'
-            )
+                f'± {np.std(paramset_metrics[metric]):.3f}')
 
         # Write paramset run metrics to tensorboard
         logdir_paramset = config['run_params']['logdir'] / \
@@ -326,6 +339,7 @@ def train_final_model(X, y, paramset, config, dist_strat):
     model = keras.models.load_model(ckpt_path, compile=True)
     # Save in .h5 format too for visualization compatibility
     model.save(Path(ckpt_path) / 'saved_model.h5', save_format='h5')
+
     # model = keras.models.load_model(str(Path(ckpt_path) / 'saved_model.h5'))
 
     logdir_figs = config['run_params']['logdir'] / 'figs'
