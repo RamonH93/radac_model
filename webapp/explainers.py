@@ -22,9 +22,13 @@ def exp_daemon(gp):
     me = params['me']
     config = params['config']
     logger = config['run_params']['logger']
+    data_src = config['run_params']['data_src']
     X = params['X']
     y = params['y']
-    final_model_path = str(Path(__file__).parent / 'saved_model')
+    final_model_path = str(
+        Path(__file__).parent / 'saved_models' /
+        'titanic') if str(data_src) == 'train_titanic.csv' else str(
+            Path(__file__).parent / 'saved_models' / 'amazon')
     tf.keras.utils.get_custom_objects().update(
         {'MCC': utils.MatthewsCorrelationCoefficient})
     model = keras.models.load_model(final_model_path, compile=True)
@@ -71,28 +75,49 @@ def exp_daemon(gp):
         f'tp:{tp},fp:{fp},tn:{tn},fn:{fn},acc:{(tp+tn)/len(y_test)}, tnr:{tn/(tn+fp)}'
     )
 
-    explainer = LimeTabularExplainer(
-        training_data=X_train,
-        # feature_names=[f'f_{x}' for x in range(len(X_train[0]))],
-        # feature_names=[
-        #     'RESOURCE',
-        #     'MGR_ID',
-        #     'ROLE_ROLLUP_1',
-        #     'ROLE_ROLLUP_2',
-        #     'ROLE_DEPTNAME',
-        #     'ROLE_TITLE',
-        #     'ROLE_FAMILY_DESC',
-        #     'ROLE_FAMILY',
-        #     'ROLE_CODE'
-        #     ],['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'
-        feature_names=[
-            'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin',
-            'Embarked_C', 'Embarked_Q', 'Embarked_S'
-        ],
-        categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
-        class_names=['Survived', 'NOT Survived'],
-        random_state=config['debugging']['seed'],
-    )
+    if str(data_src) == 'train_titanic.csv':
+        explainer = LimeTabularExplainer(
+            training_data=X_train,
+            # feature_names=[
+            #     'RESOURCE',
+            #     'MGR_ID',
+            #     'ROLE_ROLLUP_1',
+            #     'ROLE_ROLLUP_2',
+            #     'ROLE_DEPTNAME',
+            #     'ROLE_TITLE',
+            #     'ROLE_FAMILY_DESC',
+            #     'ROLE_FAMILY',
+            #     'ROLE_CODE'
+            #     ],['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'
+            feature_names=[
+                'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin',
+                'Embarked_C', 'Embarked_Q', 'Embarked_S'
+            ],
+            categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
+            class_names=['Survived', 'NOT Survived'],
+            random_state=config['debugging']['seed'],
+        )
+    else:
+        explainer = LimeTabularExplainer(
+            training_data=X_train,
+            feature_names=[f'f_{x}' for x in range(len(X_train[0]))],
+            # feature_names=[
+            #     'RESOURCE',
+            #     'MGR_ID',
+            #     'ROLE_ROLLUP_1',
+            #     'ROLE_ROLLUP_2',
+            #     'ROLE_DEPTNAME',
+            #     'ROLE_TITLE',
+            #     'ROLE_FAMILY_DESC',
+            #     'ROLE_FAMILY',
+            #     'ROLE_CODE'
+            #     ],['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'
+            class_names=['PERMIT', 'DENY'],
+            random_state=config['debugging']['seed'],
+        )
+
+    logger.info("LIME Explainer Daemon ready.")
+
     # logger.debug(y_test[exp_n])
     # logger.debug(X_test[exp_n])
     # logger.debug(model.predict(np.array([X_test[exp_n]]))[0][0])
@@ -114,10 +139,12 @@ def exp_daemon(gp):
             to_explain = params['instance']
         else:
             to_explain = params['mod']
-        exp = explainer.explain_instance(to_explain, predict_with_opposite_class_preds)
+        exp = explainer.explain_instance(to_explain,
+                                         predict_with_opposite_class_preds)
         logger.debug(exp.as_list())
         # plt.show(exp.as_pyplot_figure())
-        exp.save_to_file(str(Path(__file__).parent / 'static' / 'explanation.html'))
+        exp.save_to_file(
+            str(Path(__file__).parent / 'explanations' / 'explanation.html'))
         logger.info(f'Generated explanation for instance {str(to_explain)}')
         me.set()
         me.clear()

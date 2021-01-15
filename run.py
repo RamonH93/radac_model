@@ -92,13 +92,13 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
     logger = config['run_params']['logger']
 
     model = create_model(X_train, paramset, config, dist_strat)
-    clf = keras.wrappers.scikit_learn.KerasClassifier(build_fn=create_model)
+    # clf = keras.wrappers.scikit_learn.KerasClassifier(build_fn=create_model)
 
-    clf.fit(X_train, y_train)
-    dump(
-        clf,
-        str(config['run_params']['logdir'] / 'final' / 'saved_model' /
-            'saved_model.joblib'))
+    # clf.fit(X_train, y_train)
+    # dump(
+    #     clf,
+    #     str(config['run_params']['logdir'] / 'final' / 'saved_model' /
+    #         'saved_model.joblib'))
             
     class_weight = compute_class_weight('balanced',
                                         classes=np.unique(y_train),

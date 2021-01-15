@@ -42,10 +42,11 @@ exp_n = config['run_params']['exp_n']
 init_params['instance'] = X[exp_n]
 init_params['mod'] = X[exp_n]
 init_params['to_explain'] = 'original'
-init_params['feature_names'] = [
-    'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin', 'Embarked_C',
-    'Embarked_Q', 'Embarked_S'
-]
+# init_params['feature_names'] = [
+#     'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin', 'Embarked_C',
+#     'Embarked_Q', 'Embarked_S'
+# ]
+init_params['feature_names']=[f'f_{x}' for x in range(len(X[0]))]
 gp = GlobalParams(init_params)
 
 process_name = f'App-{os.getpid()}'
@@ -66,7 +67,9 @@ def before_first_request():
 
 @app.route("/")
 def index():
-    return send_from_directory('static', filename='index.html')
+    params = gp.get_params()
+    data_src = params['config']['run_params']['data_src']
+    return render_template('index.html', dataset=str(data_src))
 
 
 @app.route("/rowselect", methods=["POST", "GET"])
@@ -118,7 +121,7 @@ def explanation():
     de.set()  # send event to wake exp_daemon to generate new explanation
     de.clear()
     me.wait()  # wait for event that exp_daemon finished explanation generation
-    return send_from_directory('static', filename='explanation.html')
+    return send_from_directory('explanations', filename='explanation.html')
 
 
 @app.route("/explanation/<path:path>")
@@ -133,4 +136,4 @@ def favicon():
                                mimetype='image/vnd.microsoft.icon')
 
 
-# app.run(debug=True, use_reloader=False)
+app.run(debug=True, use_reloader=False)

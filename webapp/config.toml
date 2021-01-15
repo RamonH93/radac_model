@@ -1,7 +1,7 @@
 [run_params]
 cv_n_splits = 4
 data_n = 10000
-data_src = "train_titanic.csv"
+data_src = "train_amazon.csv"
 exp_n = 23
 logdir = "logs"
 
@@ -16,7 +16,7 @@ tune_metric = "MCC" # metric by which to determine best parameter set. MUST be i
 [debugging]
 explain_instance = true
 log_device_placement = false 
-loglevel = "INFO" # any int or DEBUG (10), INFO (20), WARN (30), ERROR (40), CRITICAL (50)
+loglevel = "DEBUG" # any int or DEBUG (10), INFO (20), WARN (30), ERROR (40), CRITICAL (50)
 rm_old_logs = false 
 seed = 101 
 tune_hparams = false
