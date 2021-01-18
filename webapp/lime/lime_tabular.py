@@ -12,7 +12,7 @@ import scipy as sp
 import sklearn
 import sklearn.preprocessing
 from sklearn.utils import check_random_state
-from pyDOE2 import lhs
+# from pyDOE2 import lhs
 from scipy.stats.distributions import norm
 
 from lime.discretize import QuartileDiscretizer
@@ -523,8 +523,9 @@ class LimeTabularExplainer(object):
                                                 ).reshape(num_samples, num_cols)
                 data = np.array(data)
             elif sampling_method == 'lhs':
-                data = lhs(num_cols, samples=num_samples
-                           ).reshape(num_samples, num_cols)
+                # data = lhs(num_cols, samples=num_samples
+                #            ).reshape(num_samples, num_cols)
+                raise ModuleNotFoundError("No module named 'pyDOE2'")
                 means = np.zeros(num_cols)
                 stdvs = np.array([1]*num_cols)
                 for i in range(num_cols):
