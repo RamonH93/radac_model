@@ -61,7 +61,7 @@ body {
 .tableFixHead {
     height: 600px;
     width: 450px;
-    overflow-y: scroll;
+    overflow-y: auto;
     display: block;
 }
 

@@ -3,10 +3,10 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from lime.lime_tabular import LimeTabularExplainer
 from sklearn.utils import shuffle
 from tensorflow import keras
 
+from lime.lime_tabular import LimeTabularExplainer
 import utils
 
 
