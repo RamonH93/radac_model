@@ -21,6 +21,7 @@ class GlobalParams:
     def get_params(self):
         return self.params
 
+
 init_params = {}
 de = threading.Event()
 me = threading.Event()
@@ -42,11 +43,18 @@ exp_n = config['run_params']['exp_n']
 init_params['instance'] = X[exp_n]
 init_params['mod'] = X[exp_n]
 init_params['to_explain'] = 'original'
-# init_params['feature_names'] = [
-#     'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin', 'Embarked_C',
-#     'Embarked_Q', 'Embarked_S'
-# ]
-init_params['feature_names']=[f'f_{x}' for x in range(len(X[0]))]
+if 'titanic' in config['run_params']['data_src'].name:
+    init_params['feature_names'] = [
+        'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin', 'Embarked_C',
+        'Embarked_Q', 'Embarked_S'
+    ]
+else:
+    init_params['feature_names'] = [
+        'RESOURCE', 'MGR_ID', 'ROLE_ROLLUP_1', 'ROLE_ROLLUP_2',
+        'ROLE_DEPTNAME', 'ROLE_TITLE', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY',
+        'ROLE_CODE'
+    ]
+# init_params['feature_names'] = [f'f_{x}' for x in range(len(X[0]))]
 gp = GlobalParams(init_params)
 
 process_name = f'App-{os.getpid()}'
@@ -97,7 +105,7 @@ def samplemod():
     gp.set_params(params)
     if request.method == 'POST':
         datadict = request.get_json()
-        logger.debug('/samplemod ' + str(datadict))
+        # logger.debug('/samplemod ' + str(datadict))
         mod = []
         for idx in range(len(datadict)):
             mod.append(int(datadict[str(idx)]))

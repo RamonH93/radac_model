@@ -78,17 +78,6 @@ def exp_daemon(gp):
     if str(data_src) == 'train_titanic.csv':
         explainer = LimeTabularExplainer(
             training_data=X_train,
-            # feature_names=[
-            #     'RESOURCE',
-            #     'MGR_ID',
-            #     'ROLE_ROLLUP_1',
-            #     'ROLE_ROLLUP_2',
-            #     'ROLE_DEPTNAME',
-            #     'ROLE_TITLE',
-            #     'ROLE_FAMILY_DESC',
-            #     'ROLE_FAMILY',
-            #     'ROLE_CODE'
-            #     ],['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'
             feature_names=[
                 'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin',
                 'Embarked_C', 'Embarked_Q', 'Embarked_S'

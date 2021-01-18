@@ -26,7 +26,6 @@ body {
 }
 
 .nav {
-    width: 400px;
     height: (100vh - 48px);
     background: #d4d7dc;
 }
@@ -59,18 +58,34 @@ body {
     padding: 5px;
 }
 
-th:tr {
-    color: blue;
+.tableFixHead {
+    height: 600px;
+    width: 450px;
+    overflow-y: scroll;
+    display: block;
+}
 
+.tableFixHead th { 
+    position: sticky;
+    top: 0;
 }
 
 tr:nth-of-type(2n) {
     border: 1px solid black;
     background-color: rgba(150, 150, 150, 0.5);
-
 }
 
-td {
+td, th {
     padding: 8px 8px;
     border: 1px solid black;
+}
+
+th {
+    background: #d4d7dc;
+    font-weight: bold;
+    text-align: left;
+}
+
+.btn {
+    width: 62px;
 }

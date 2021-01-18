@@ -8,16 +8,15 @@
 
 <body>
     <h2>Feature Selection (Row: {{rowidx}})</h2>
-    <h3>{{current_time}}</h3>
     <form id="samplemod" action="/samplemod" method="POST">
-        <table style="margin-left: 20px;">
-            <th>
-                <tr>
-                    <td>Feature</td>
-                    <td>Original</td>
-                    <td style="width: 50px;">Modified</td>
-                </tr>
-            </th>
+        <table class="tableFixHead" style="margin-left: 20px; margin-right: 20px">
+            <tr>
+                <th>Feature</th>
+                <th>Original</th>
+                <th>Modified</th>
+                <th><input type="button" id="rstButton" onclick="reload('samplemod')" class="btn" value="Reset">
+                    <input type="submit" id="btnSubmit" class="btn" value="Submit"></th>
+            </tr>
 
             {%for i in range(0, len)%}
             <tr>
@@ -27,14 +26,6 @@
                         style="font-size: 14px; width: 50px;"></td>
             </tr>
             {%endfor%}
-            <tr>
-                <td></td>
-                <td></td>
-                <td>
-                    <input type="button" id="rstButton" onclick="reload('samplemod')" value="Reset">
-                    <input type="submit" id="btnSubmit" value="Submit">
-                </td>
-            </tr>
         </table>
     </form>
 </body>
