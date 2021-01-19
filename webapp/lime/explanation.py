@@ -247,8 +247,9 @@ class Explanation(object):
             labels = self.available_labels()
 
         this_dir, _ = os.path.split(__file__)
-        bundle = open(os.path.join(this_dir, 'bundle.js'),
-                      encoding="utf8").read()
+        # bundle = open(os.path.join(this_dir, 'bundle.js'),
+        #               encoding="utf8").read()
+        bundle = '</script><script src="/static/bundle.js"></script><script>'
 
         out = u'''<html>
         <meta http-equiv="content-type" content="text/html; charset=UTF8">
