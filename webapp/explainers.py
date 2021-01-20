@@ -6,6 +6,7 @@ import tensorflow as tf
 from sklearn.utils import shuffle
 from tensorflow import keras
 
+import preprocess_data as ppd
 from lime.lime_tabular import LimeTabularExplainer
 import utils
 
@@ -21,10 +22,9 @@ def exp_daemon(gp):
     de = params['de']
     me = params['me']
     config = params['config']
-    logger = config['run_params']['logger']
+    logger = params['logger']
     data_src = config['run_params']['data_src']
-    X = params['X']
-    y = params['y']
+    X, y = ppd.preprocess_data(params['X'], params['y'], gp)
     final_model_path = str(
         Path(__file__).parent / 'saved_models' /
         'titanic') if str(data_src) == 'train_titanic.csv' else str(
@@ -33,7 +33,7 @@ def exp_daemon(gp):
         {'MCC': utils.MatthewsCorrelationCoefficient})
     model = keras.models.load_model(final_model_path, compile=True)
 
-    X, y = shuffle(X, y, random_state=config['debugging']['seed'])
+    # X, y = shuffle(X, y, random_state=config['debugging']['seed'])
 
     test_size = 0.2
     data_len = len(y)
@@ -82,7 +82,9 @@ def exp_daemon(gp):
                 'Pclass', 'Sex', 'SibSp', 'Parch', 'FareBin', 'AgeBin',
                 'Embarked_C', 'Embarked_Q', 'Embarked_S'
             ],
-            categorical_features=['Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'],
+            categorical_features=[
+                'Sex', 'Embarked_C', 'Embarked_Q', 'Embarked_S'
+            ],
             class_names=['Survived', 'NOT Survived'],
             random_state=config['debugging']['seed'],
         )
@@ -91,16 +93,12 @@ def exp_daemon(gp):
             training_data=X_train,
             feature_names=[f'f_{x}' for x in range(len(X_train[0]))],
             # feature_names=[
-            #     'RESOURCE',
-            #     'MGR_ID',
-            #     'ROLE_ROLLUP_1',
-            #     'ROLE_ROLLUP_2',
-            #     'ROLE_DEPTNAME',
-            #     'ROLE_TITLE',
-            #     'ROLE_FAMILY_DESC',
-            #     'ROLE_FAMILY',
-            #     'ROLE_CODE'
-            #     ],['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'
+            #     'RESOURCE', 'MGR_ID', 'ROLE_ROLLUP_1', 'ROLE_ROLLUP_2',
+            #     'ROLE_DEPTNAME', 'ROLE_TITLE', 'ROLE_FAMILY_DESC',
+            #     'ROLE_FAMILY', 'ROLE_CODE'
+            # ],
+            # ['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'
+            categorical_features=[f'f_{x}' for x in range(len(X_train[0]))],
             class_names=['PERMIT', 'DENY'],
             random_state=config['debugging']['seed'],
         )
@@ -125,15 +123,19 @@ def exp_daemon(gp):
     while True:
         de.wait()
         if params['to_explain'] == 'original':
-            to_explain = params['instance']
+            to_explain = ppd.process_row(params['instance'], gp)
         else:
-            to_explain = params['mod']
+            to_explain = ppd.process_row(params['mod'], gp)
+
         exp = explainer.explain_instance(to_explain,
                                          predict_with_opposite_class_preds)
+        logger.info(
+            f"LIME generated explanation for instance {str(to_explain)}.")
         logger.debug(exp.as_list())
         # plt.show(exp.as_pyplot_figure())
         exp.save_to_file(
             str(Path(__file__).parent / 'explanations' / 'explanation.html'))
-        logger.info(f'Generated explanation for instance {str(to_explain)}')
+        logger.info(f'Lime explanation saved to file.')
+
         me.set()
         me.clear()

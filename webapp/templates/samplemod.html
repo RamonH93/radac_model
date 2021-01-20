@@ -8,22 +8,23 @@
 
 <body>
     <h2>Feature Selection (Row: {{rowidx}})</h2>
+    <h3>{%if not input_validation['correct']%}Invalid feature '{{input_validation['col']}}' cannot be '{{input_validation['val']}}'.{%else%}Modified features successfully.{%endif%}</h3>
     <form id="samplemod" action="/samplemod" method="POST">
         <table class="tableFixHead" style="margin-left: 20px; margin-right: 20px">
             <tr>
                 <th>Feature</th>
                 <th>Original</th>
                 <th>Modified</th>
-                <th><input type="button" id="rstButton" onclick="reload('samplemod')" class="btn" value="Reset"><br>
+                <th><input type="button" id="rstButton" class="btn" value="Reset"><br>
                     <input type="submit" id="btnSubmit" class="btn" value="Submit"></th>
             </tr>
 
             {%for i in range(0, len)%}
             <tr>
                 <td>{{feature_names[i]}}</td>
-                <td>{{instance[i]}}</td>
-                <td><input type="number" id="{{i}}" name="{{i}}" value="{{instance[i]}}" min="0"
-                        style="font-size: 14px; width: 50px;"></td>
+                <td>{{instance.values[0][i]}}</td>
+                <td><input type="text" id="{{feature_names[i]}}" name="{{feature_names[i]}}" value="{{instance_mod.values[0][i]}}" min="0"
+                        style="font-size: 14px; width: 55px;"></td>
             </tr>
             {%endfor%}
         </table>
@@ -31,22 +32,35 @@
 </body>
 
 <script>
+    let form = document.getElementById("samplemod")
+    form.addEventListener("submit", evt => {
+        event.preventDefault();
+        XMLPost(form);
+        delayedReload('samplemod', 250);
+        // delayedReload('expm', 250);
+    });
+    window.onload = function() {
+        {%if input_validation['correct']%}
+        reload('expm', 250);
+        {%endif%}
+    };
+    let rstBtn = document.getElementById("rstButton")
+    rstBtn.addEventListener("click", evt => {
+        {%for i in range(0, len)%}
+        document.getElementById("{{feature_names[i]}}").value = "{{instance.values[0][i]}}";
+        {%endfor%}
+    });
+
     function XMLPost(form) {
         var xhr = new XMLHttpRequest();
         xhr.open("POST", form.action, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         jsonstr = {};
-        for (var i = 0; i < {{ len }}; i++) { 
-            jsonstr[i] = document.getElementById(i).value;
-        };
+        {%for i in range(0, len)%}
+        jsonstr["{{feature_names[i]}}"] = document.getElementById("{{feature_names[i]}}").value;
+        {%endfor%}
         xhr.send(JSON.stringify(jsonstr));
     }
-    let form = document.getElementById("samplemod")
-    form.addEventListener("submit", evt => {
-        event.preventDefault();
-        XMLPost(form)
-        delayedReload('expm', 250);
-    })
     function delayedReload(iframe, delay) {
         setTimeout(() => { reload(iframe) }, delay)
     }
