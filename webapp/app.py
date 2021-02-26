@@ -179,8 +179,5 @@ def favicon():
 #################################################################################
 app.run(debug=True, use_reloader=False)
 
-# train LIME op geprocessde data
-# TODO process rij naar model compatibel
-# TODO doe voorspelling
-# TODO geef explanations weer voor model compatibel
+
 # TODO vervang explanation weergave met originele features

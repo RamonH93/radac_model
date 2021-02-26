@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
 
 
-def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
+def preprocess_data(config, plot=False):
     logger = config['run_params']['logger']
     processed = False
 
@@ -61,10 +61,38 @@ def preprocess_data(config, plot=False) -> (np.ndarray, np.ndarray):
     if 'amazon' in config['run_params']['data_src'].name:
         df = pd.read_csv(config['run_params']['data_src'])
 
+        logger.debug('\n' + str(df.info()))
+        logger.debug('\n' + str(df.describe()))
+        logger.debug('\n' + str(df.nunique()))
+        logger.debug(df.isnull().sum())
+        logger.debug(df['RESOURCE'].value_counts())
+        # df['RESOURCE'].value_counts().head(100).plot(kind='bar')
+        # plt.show()
 
-        df.drop(['MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY', 'ROLE_CODE'],
+        resource_vc = df['RESOURCE'].value_counts()
+
+        print(len(df))
+        print(df['RESOURCE'].nunique())
+
+        # to_keep = resource_vc.loc[resource_vc > 5].keys()
+        # df = df[df['RESOURCE'].isin(to_keep)] # drop resources freq = 1
+
+        to_replace = resource_vc.loc[resource_vc <= 5].keys()
+        df['RESOURCE'].replace(to_replace, -1, inplace=True) # replace resources freq = 1
+        
+        print(len(df))
+        print(df['RESOURCE'].nunique())
+
+        # df['RESOURCE'].value_counts().tail(100).plot(kind='bar')
+        # plt.show()
+
+        df.drop([
+            'MGR_ID', 'ROLE_ROLLUP_2', 'ROLE_FAMILY_DESC', 'ROLE_FAMILY',
+            'ROLE_CODE'
+        ],
                 inplace=True,
                 axis=1)
+        # RESOURCE,ROLLUP1,DEPTNAME,TITLE remain
 
         # if logger:
         #     logger.debug('\n' + str(df.info()))

@@ -46,16 +46,16 @@ def preprocess_data(X, y, gp, plot=False):
     logger = params['logger']
 
     if 'amazon' in config['run_params']['data_src'].name:
-        X, y = process_amazon(X, y, logger, plot)
+        X, y, feature_names, label_names = process_amazon(X, y, logger, plot)
 
     elif 'titanic' in config['run_params']['data_src'].name:
-        X, y = process_titanic(X, y, logger, plot)
+        X, y, feature_names, label_names = process_titanic(X, y, logger, plot)
 
     else:
         raise ValueError(f'no parser for {config["run_params"]["data_src"]}')
 
     X, y = shuffle(X, y, random_state=config['debugging']['seed'])
-    return X, y
+    return X, y, feature_names, label_names
 
 
 def process_amazon(X, y, logger=None, plot=False):
@@ -93,8 +93,8 @@ def process_amazon(X, y, logger=None, plot=False):
     # TPUs cant handle uint8, GPU cant handle uint32
     df = df.astype(np.int32)
     y = y.astype(np.int32)
-    if logger:
-        logger.debug(df.dtypes)
+    # if logger:
+    #     logger.debug(df.dtypes)
 
     # logger.debug(df.value_counts('RESOURCE'))
     # logger.debug(df.value_counts('MGR_ID'))
@@ -106,10 +106,12 @@ def process_amazon(X, y, logger=None, plot=False):
     # logger.debug(df.value_counts('ROLE_FAMILY'))
     # logger.debug(df.value_counts('ROLE_CODE'))
 
+    feature_names = df.columns
+    label_names = ['PERMIT', 'DENY']
     X = df.values
     y = y.values
 
-    return X, y
+    return X, y, feature_names, label_names
 
 
 def process_titanic(X, y, logger=None, plot=False):
@@ -159,7 +161,9 @@ def process_titanic(X, y, logger=None, plot=False):
     #     logger.debug('\n' + str(df.describe()))
     # ProfileReport(df.join(y)).to_file('titanic_preprocessed.html')
 
-    X = df.to_numpy()
+    feature_names = df.columns
+    label_names = ['Survived', 'NOT Survived']
+    X = df.to_numpy() # All np.int64 type
 
     # if logger:
     #     logger.debug(X)
@@ -169,7 +173,7 @@ def process_titanic(X, y, logger=None, plot=False):
 
     y = y.to_numpy()
 
-    return X, y
+    return X, y, feature_names, label_names
 
 
 def process_row(row, gp):
@@ -209,6 +213,7 @@ def process_row_amazon(row, gp):
 
     return rowdf
 
+
 def process_row_titanic(row, gp):
     params = gp.get_params()
     origX = params['X']
@@ -228,7 +233,9 @@ def process_row_titanic(row, gp):
     rowdf['Sex'] = np.where(rowdf['Sex'] == 'male', 1, 0)
 
     # One-hot encoded embarkments
-    orig_ohe_cols = pd.get_dummies(origX['Embarked'], prefix='Embarked').columns
+    origX['Embarked'].fillna(origX['Embarked'].mode()[0], inplace=True)
+    orig_ohe_cols = pd.get_dummies(origX['Embarked'],
+                                   prefix='Embarked').columns
     one_hot = pd.get_dummies(rowdf['Embarked'], prefix='Embarked')
     for col in orig_ohe_cols:
         rowdf[col] = 0
@@ -236,6 +243,8 @@ def process_row_titanic(row, gp):
         rowdf[col] = one_hot[col]
 
     rowdf.drop(['Fare', 'Age', 'Embarked'], inplace=True, axis=1)
-    rowdf = rowdf.to_numpy()[0]
+
+    rowdf = rowdf.to_numpy()[0] # For some reason doesn't convert all to np.int64 this time
+    rowdf = rowdf.astype(np.int64)
 
     return rowdf

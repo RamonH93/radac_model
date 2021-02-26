@@ -19,20 +19,28 @@ def create_model(X_train, paramset, config, dist_strat):
     model = keras.models.Sequential([
         keras.Input(shape=(X_train.shape[1], ), name='inputs'),
         # keras.Input(shape=list(dataset.take(1).as_numpy_iterator())[0][0].shape)) #tfdataset
-        keras.layers.Dense(paramset['num_units'],
-                           input_shape=(X_train.shape[1], ),
-                           activation=tf.nn.relu,
-                           name='dense'),
-        keras.layers.Dense(paramset['num_units'] * 2,
-                           input_shape=(X_train.shape[1], ),
-                           activation=tf.nn.relu,
-                           name='dense_1'),
-        keras.layers.Dense(paramset['num_units'],
-                           input_shape=(X_train.shape[1], ),
-                           activation=tf.nn.relu,
-                           name='dense_2'),
-        # kernel_initializer=keras.initializers.Ones(),
-        # bias_initializer=keras.initializers.Zeros(),
+        keras.layers.Dense(
+            paramset['num_units'],
+            input_shape=(X_train.shape[1], ),
+            activation=tf.nn.relu,
+            # kernel_initializer=keras.initializers.RandomNormal(stddev=0.01),
+            # kernel_initializer=keras.initializers.GlorotUniform(),
+            # bias_initializer=keras.initializers.Zeros(),
+            name='dense'),
+        keras.layers.Dense(
+            paramset['num_units'] * 2,
+            input_shape=(X_train.shape[1], ),
+            activation=tf.nn.relu,
+            # kernel_initializer=keras.initializers.RandomNormal(stddev=0.01),
+            # bias_initializer=keras.initializers.Ones(),
+            name='dense_1'),
+        keras.layers.Dense(
+            paramset['num_units'],
+            input_shape=(X_train.shape[1], ),
+            activation=tf.nn.relu,
+            # kernel_initializer=keras.initializers.RandomNormal(stddev=0.01),
+            # bias_initializer=keras.initializers.Zeros(),
+            name='dense_2'),
         keras.layers.Dense(
             1,
             input_shape=(paramset['num_units'], ),
@@ -80,6 +88,9 @@ def create_model(X_train, paramset, config, dist_strat):
     with dist_strat.scope():
         model.compile(
             optimizer=paramset['optimizer'],
+            # optimizer=keras.optimizers.SGD(
+            #     learning_rate=1e-3,
+            # ),
             loss='binary_crossentropy',
             # loss=dice_coef_loss,
             metrics=config['hyperparameters']['metrics'],
@@ -99,7 +110,7 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
     #     clf,
     #     str(config['run_params']['logdir'] / 'final' / 'saved_model' /
     #         'saved_model.joblib'))
-            
+
     class_weight = compute_class_weight('balanced',
                                         classes=np.unique(y_train),
                                         y=y_train)
@@ -109,12 +120,11 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
         batch_size=paramset['batch_size'],
         # batch_size=len(X_train),
         class_weight=class_weight,
-        epochs=50,
+        epochs=250,
         verbose=2,
         callbacks=callbacks,
         validation_data=(X_test, y_test),
         shuffle=True)
-
 
     # logger.info(model.evaluate(X_test, y_test))
     y_pred = model.predict(X_test)
@@ -298,6 +308,12 @@ def train_final_model(X, y, paramset, config, dist_strat):
     X_val, y_val = X[train_split_idx:test_split_idx], y[
         train_split_idx:test_split_idx]
     X_test, y_test = X[test_split_idx:], y[test_split_idx:]
+
+    # Equal class distribution in validation set
+    min_idx = np.argwhere(y_val == 0).ravel()
+    maj_idx = np.argwhere(y_val == 1)[:len(min_idx)].ravel()
+    X_val = X_val[np.concatenate((min_idx, maj_idx))]
+    y_val = y_val[np.concatenate((min_idx, maj_idx))]
 
     # Equal class distribution in test set
     min_idx = np.argwhere(y_test == 0).ravel()

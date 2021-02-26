@@ -59,7 +59,7 @@ body {
 }
 
 .tableFixHead {
-    height: 600px;
+    height: 500px;
     width: 450px;
     overflow-y: auto;
     display: block;
