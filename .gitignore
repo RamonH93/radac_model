@@ -3,6 +3,8 @@ logs/*
 *.csv
 *.lnk
 *.html
+*.key
+*.token
 webapp/saved_model/*
 !webapp/static/*
 !webapp/templates/*

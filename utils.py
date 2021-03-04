@@ -1,16 +1,19 @@
 import collections
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import matplotlib.collections as mcoll
+import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import tensorflow as tf
 import toml
+from cryptography.fernet import Fernet
 from matplotlib.legend_handler import HandlerLineCollection
 from sklearn.metrics import accuracy_score, auc, confusion_matrix, roc_curve
 from tensorboard.plugins.hparams import api as hp
 from tensorflow import keras
+from twilio.base.exceptions import TwilioRestException
+from twilio.rest import Client
 
 
 def load_config() -> dict:
@@ -368,6 +371,39 @@ def plot_metrics(history: keras.callbacks.History,
         plt.show()
     else:
         plt.close()
+
+
+def send_notification(first, second, whatsapp=True):
+    try:
+        key = open("twilio.key", "rb").read()
+        f = Fernet(key)
+        with open("twilio.token", "rb") as file:
+            account_sid_encrypted, auth_token_encrypted, from_encrypted, to_encrypted = file.readlines(
+            )
+
+        account_sid = f.decrypt(account_sid_encrypted).decode()
+        auth_token = f.decrypt(auth_token_encrypted).decode()
+        from_ = f.decrypt(from_encrypted).decode()
+        to = f.decrypt(to_encrypted).decode()
+
+        client = Client(account_sid, auth_token)
+
+        if whatsapp:
+            message = client.messages.create(
+                from_=from_,
+                body=f'Your {first} code is {second}',
+                to=to,
+            )
+        else:
+            message = client.messages.create(
+                messaging_service_sid='MG97070ce0097d0b5b8a5279bd264c2e5c',
+                body=f'Your {first} code is {second}',
+                to='+31616302870')
+    except FileNotFoundError as e:
+        print(f"Failed to send notification: file {e.filename} not found")
+    except TwilioRestException as e:
+        print(f"Failed to send notification: {e.status}")
+    return message
 
 
 def plot_parallel_coordinates():

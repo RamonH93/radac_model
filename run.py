@@ -5,10 +5,12 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from collections import Counter
+from imblearn.over_sampling import ADASYN
 from joblib import dump
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import ParameterGrid, StratifiedKFold
-from sklearn.utils import compute_class_weight
+from sklearn.utils import compute_class_weight, shuffle
 from tensorboard.plugins.hparams import api as hp
 from tensorflow import keras
 
@@ -19,14 +21,14 @@ def create_model(X_train, paramset, config, dist_strat):
     model = keras.models.Sequential([
         keras.Input(shape=(X_train.shape[1], ), name='inputs'),
         # keras.Input(shape=list(dataset.take(1).as_numpy_iterator())[0][0].shape)) #tfdataset
-        keras.layers.Dense(
-            paramset['num_units'],
-            input_shape=(X_train.shape[1], ),
-            activation=tf.nn.relu,
-            # kernel_initializer=keras.initializers.RandomNormal(stddev=0.01),
-            # kernel_initializer=keras.initializers.GlorotUniform(),
-            # bias_initializer=keras.initializers.Zeros(),
-            name='dense'),
+        # keras.layers.Dense(
+        #     paramset['num_units'],
+        #     input_shape=(X_train.shape[1], ),
+        #     activation=tf.nn.relu,
+        #     # kernel_initializer=keras.initializers.RandomNormal(stddev=0.01),
+        #     # kernel_initializer=keras.initializers.GlorotUniform(),
+        #     # bias_initializer=keras.initializers.Zeros(),
+        #     name='dense'),
         keras.layers.Dense(
             paramset['num_units'] * 2,
             input_shape=(X_train.shape[1], ),
@@ -88,9 +90,13 @@ def create_model(X_train, paramset, config, dist_strat):
     with dist_strat.scope():
         model.compile(
             optimizer=paramset['optimizer'],
-            # optimizer=keras.optimizers.SGD(
-            #     learning_rate=1e-3,
+            # optimizer=keras.optimizers.Adam(
+            #     learning_rate=1e-5,
+            #     amsgrad=True,
             # ),
+            # optimizer=keras.optimizers.SGD(learning_rate=1e-3,
+            #                                # momentum=1.0,
+            #                                ),
             loss='binary_crossentropy',
             # loss=dice_coef_loss,
             metrics=config['hyperparameters']['metrics'],
@@ -138,6 +144,11 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
     logger.info(
         f'tp:{tp},fp:{fp},tn:{tn},fn:{fn},acc:{(tp+tn)/len(y_test)}, tnr:{tn/(tn+fp)}'
     )
+
+    msg = utils.send_notification("Finished training model",
+                                  f"Accuracy: {(tp+tn)/len(y_test)}",
+                                  whatsapp=True)
+    logger.debug(f'Sent message "{msg.body}"')
 
     logdir_figs = config['run_params']['logdir'] / 'figs'
     Path.mkdir(logdir_figs, parents=True, exist_ok=True)
@@ -309,17 +320,40 @@ def train_final_model(X, y, paramset, config, dist_strat):
         train_split_idx:test_split_idx]
     X_test, y_test = X[test_split_idx:], y[test_split_idx:]
 
-    # Equal class distribution in validation set
-    min_idx = np.argwhere(y_val == 0).ravel()
-    maj_idx = np.argwhere(y_val == 1)[:len(min_idx)].ravel()
-    X_val = X_val[np.concatenate((min_idx, maj_idx))]
-    y_val = y_val[np.concatenate((min_idx, maj_idx))]
+    # Equal class distribution in train set by oversampling minority class
+    bool_train_labels = y_train == 1
+    pos_features = X_train[bool_train_labels]
+    neg_features = X_train[~bool_train_labels]
+    pos_labels = y_train[bool_train_labels]
+    neg_labels = y_train[~bool_train_labels]
+    ids = np.arange(len(neg_features))
+    choices = np.random.choice(ids, len(pos_features))
+    res_neg_features = neg_features[choices]
+    res_neg_labels = neg_labels[choices]
+    X_train = np.concatenate([res_neg_features, pos_features], axis=0)
+    y_train = np.concatenate([res_neg_labels, pos_labels], axis=0)
+    X_train, y_train = shuffle(X_train,
+                               y_train,
+                               random_state=config['debugging']['seed'])
 
-    # Equal class distribution in test set
-    min_idx = np.argwhere(y_test == 0).ravel()
-    maj_idx = np.argwhere(y_test == 1)[:len(min_idx)].ravel()
-    X_test = X_test[np.concatenate((min_idx, maj_idx))]
-    y_test = y_test[np.concatenate((min_idx, maj_idx))]
+    # Equal class distribution in train set using SMOTE
+    # print(Counter(y_train))
+    # X_train, y_train = ADASYN(
+    #     random_state=config['debugging']['seed']).fit_resample(
+    #         X_train, y_train)
+    # print(Counter(y_train))
+
+    # Equal class distribution in validation set by undersampling majority class
+    # min_idx = np.argwhere(y_val == 0).ravel()
+    # maj_idx = np.argwhere(y_val == 1)[:len(min_idx)].ravel()
+    # X_val = X_val[np.concatenate((min_idx, maj_idx))]
+    # y_val = y_val[np.concatenate((min_idx, maj_idx))]
+
+    # Equal class distribution in test set by undersampling majority class
+    # min_idx = np.argwhere(y_test == 0).ravel()
+    # maj_idx = np.argwhere(y_test == 1)[:len(min_idx)].ravel()
+    # X_test = X_test[np.concatenate((min_idx, maj_idx))]
+    # y_test = y_test[np.concatenate((min_idx, maj_idx))]
 
     # Define the Keras callbacks
     tensorboard = keras.callbacks.TensorBoard(log_dir=str(final_model_path),

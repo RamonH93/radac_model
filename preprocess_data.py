@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+# import seaborn as sns
 # from pandas_profiling import ProfileReport
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
@@ -61,12 +62,30 @@ def preprocess_data(config, plot=False):
     if 'amazon' in config['run_params']['data_src'].name:
         df = pd.read_csv(config['run_params']['data_src'])
 
-        logger.debug('\n' + str(df.info()))
-        logger.debug('\n' + str(df.describe()))
-        logger.debug('\n' + str(df.nunique()))
-        logger.debug(df.isnull().sum())
-        logger.debug(df['RESOURCE'].value_counts())
-        # df['RESOURCE'].value_counts().head(100).plot(kind='bar')
+        # logger.debug('\n' + str(df.info()))
+        # logger.debug('\n' + str(df.describe()))
+        # logger.debug('\n' + str(df.nunique()))
+        # logger.debug(df.isnull().sum())
+
+        # df['ROLE_ROLLUP_1'].value_counts().plot(kind='bar')
+        # sns.countplot(x='ROLE_ROLLUP_1',
+        #               hue='ACTION',
+        #               order=df['ROLE_ROLLUP_1'].value_counts().keys(),
+        #               data=df)
+        df_plot = df.groupby(['ROLE_ROLLUP_1',
+                              'ACTION']).size().reset_index().pivot(
+                                  columns='ACTION',
+                                  index='ROLE_ROLLUP_1',
+                                  values=0)
+        df_plot.sort_values(
+            0,
+            ascending=False,
+            inplace=True,
+            # key=lambda x: df_plot[0].fillna(0) + df_plot[1].fillna(0),
+        )
+        print(df_plot)
+        # df_plot.head(df['ROLE_ROLLUP_1'].nunique()).plot(kind='bar',
+        #                                                  stacked=True)
         # plt.show()
 
         resource_vc = df['RESOURCE'].value_counts()
@@ -75,11 +94,12 @@ def preprocess_data(config, plot=False):
         print(df['RESOURCE'].nunique())
 
         # to_keep = resource_vc.loc[resource_vc > 5].keys()
-        # df = df[df['RESOURCE'].isin(to_keep)] # drop resources freq = 1
+        # df = df[df['RESOURCE'].isin(to_keep)] # drop resources freq <= 5
 
         to_replace = resource_vc.loc[resource_vc <= 5].keys()
-        df['RESOURCE'].replace(to_replace, -1, inplace=True) # replace resources freq = 1
-        
+        df['RESOURCE'].replace(to_replace, -1,
+                               inplace=True)  # replace resources freq <=5
+
         print(len(df))
         print(df['RESOURCE'].nunique())
 
