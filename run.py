@@ -17,7 +17,7 @@ from tensorflow import keras
 import utils
 
 
-def create_model(X_train, paramset, config, dist_strat):
+def create_model(X_train, paramset, config):
     model = keras.models.Sequential([
         keras.Input(shape=(X_train.shape[1], ), name='inputs'),
         # keras.Input(shape=list(dataset.take(1).as_numpy_iterator())[0][0].shape)) #tfdataset
@@ -87,28 +87,29 @@ def create_model(X_train, paramset, config, dist_strat):
         #     (2. * intersection + smooth) /
         #     (keras.backend.sum(y_true) + keras.backend.sum(y_pred) + smooth))
 
-    with dist_strat.scope():
-        model.compile(
-            optimizer=paramset['optimizer'],
-            # optimizer=keras.optimizers.Adam(
-            #     learning_rate=1e-5,
-            #     amsgrad=True,
-            # ),
-            # optimizer=keras.optimizers.SGD(learning_rate=1e-3,
-            #                                # momentum=1.0,
-            #                                ),
-            loss='binary_crossentropy',
-            # loss=dice_coef_loss,
-            metrics=config['hyperparameters']['metrics'],
-            # run_eagerly=True
-        )
+    model.compile(
+        optimizer=paramset['optimizer'],
+        # optimizer=keras.optimizers.Adam(
+        #     learning_rate=1e-5,
+        #     amsgrad=True,
+        # ),
+        # optimizer=keras.optimizers.SGD(learning_rate=1e-3,
+        #                                # momentum=1.0,
+        #                                ),
+        loss='binary_crossentropy',
+        # loss=dice_coef_loss,
+        metrics=config['hyperparameters']['metrics'],
+        # run_eagerly=True
+    )
     return model
 
 
 def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callbacks, config, dist_strat, show=False):  # pylint: disable=line-too-long
     logger = config['run_params']['logger']
 
-    model = create_model(X_train, paramset, config, dist_strat)
+    # with tf.device('/cpu:0'):
+    with dist_strat.scope():
+        model = create_model(X_train, paramset, config)
     # clf = keras.wrappers.scikit_learn.KerasClassifier(build_fn=create_model)
 
     # clf.fit(X_train, y_train)
@@ -120,17 +121,20 @@ def train_test_model(run_name, X_train, y_train, X_test, y_test, paramset, callb
     class_weight = compute_class_weight('balanced',
                                         classes=np.unique(y_train),
                                         y=y_train)
-    history = model.fit(
-        X_train,
-        y_train,
-        batch_size=paramset['batch_size'],
-        # batch_size=len(X_train),
-        class_weight=class_weight,
-        epochs=250,
-        verbose=2,
-        callbacks=callbacks,
-        validation_data=(X_test, y_test),
-        shuffle=True)
+
+    # with tf.device('/cpu:0'):
+    with dist_strat.scope():
+        history = model.fit(
+            X_train,
+            y_train,
+            batch_size=paramset['batch_size'],
+            # batch_size=len(X_train),
+            class_weight=class_weight,
+            epochs=250,
+            verbose=2,
+            callbacks=callbacks,
+            validation_data=(X_test, y_test),
+            shuffle=True)
 
     # logger.info(model.evaluate(X_test, y_test))
     y_pred = model.predict(X_test)
