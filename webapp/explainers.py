@@ -135,6 +135,8 @@ def exp_daemon(gp):
     )
 
     logger.info("LIME Explainer Daemon ready.")
+    me.set()
+    me.clear()
 
     # logger.debug(y_test[exp_n])
     # logger.debug(X_test[exp_n])
@@ -203,7 +205,7 @@ def exp_daemon(gp):
 
         logger.info(
             f"LIME generated explanation for instance {str(to_explain)}.")
-        logger.debug(exp.as_list())
+        # logger.debug(exp.as_list())
         # plt.show(exp.as_pyplot_figure())
         exp.save_to_file(
             str(Path(__file__).parent / 'explanations' / 'explanation.html'))

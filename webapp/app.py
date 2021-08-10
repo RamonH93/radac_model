@@ -78,6 +78,7 @@ threading.Thread(target=exp.exp_daemon,
                  args=(gp, ),
                  daemon=True).start()
 logger.info(f'{process_name} spawned {thread_name}')
+me.wait() # Finish ExplainerDaemon initialization before launching app
 
 #################################################################################
 ###### CREATE APP #######
