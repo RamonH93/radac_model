@@ -1,12 +1,12 @@
-from functools import lru_cache
-import random
 from bisect import bisect_right
+from functools import lru_cache
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
-from scipy import interpolate
+import pandas as pd
 
 import risklabeling as rl
+
 
 # 2020 age distribution in the Netherlands
 # Respective groups: Under-5s, 5-14 years, 15-24 years, 25-64 years, 65+ years
@@ -19,34 +19,8 @@ AGE_DIST = {
     0.2003: (65., 115 + (62 / 365))
 }
 
-p_normal = [0.0024, 0.0024, 1.0E-6, 3.0E-5, 7.0E-5, 4.0E-5, 0.5, 0.001, 5.0E-5]
-p_elderly = [0.024, 0.024, 0.001, 3.0E-5, 0.07, 0.04, 0.5, 0.01, 5.0E-5]
-
-def generate_age():
-    age_group = np.random.choice(sorted(list(AGE_DIST.keys())),
-                                 p=sorted(list(AGE_DIST.keys())))
-
-    age = np.random.uniform(low=AGE_DIST[age_group][0],
-                            high=AGE_DIST[age_group][1])
-
-    return age
-
-
-iage = generate_age()
-
-p_custom = list(p_normal)
-
-x = [v[1] for v in AGE_DIST.values()]
-x.insert(0, AGE_DIST[min(AGE_DIST.keys())][0])
-x = sorted(x)
-
-y = [0.0024, 0.0024, 0.0024, 0.0024, 0.0024, 0.024]
-
-f = interpolate.interp1d(x, y)
-p = float(f(iage))
-
-print("age: scipy prob, " + str({iage: p}))
-print("age: numpy prob, " + str({iage: np.interp(iage, x, y)}))
+P_NORMAL = np.array([0.0024, 0.0024, 1.0E-6, 3.0E-5, 7.0E-5, 4.0E-5, 0.5, 0.001, 5.0E-5])
+P_ELDERLY = np.array([0.024, 0.024, 0.001, 3.0E-5, 0.07, 0.04, 0.5, 0.01, 5.0E-5])
 
 # already 20x faster than scipy's interp1d and 5x faster than np.interp
 # lru_cache speeds it up even more
@@ -69,24 +43,44 @@ class Interpolate:
         return self.y_list[i] + self.slopes[i] * (x - self.x_list[i])
 
 
+def generate_age():
+    age_group = np.random.choice(sorted(list(AGE_DIST.keys())),
+                                 p=sorted(list(AGE_DIST.keys())))
+
+    age = np.random.uniform(low=AGE_DIST[age_group][0],
+                            high=AGE_DIST[age_group][1])
+
+    return age
+
+x = [v[1] for v in AGE_DIST.values()]
+x.insert(0, AGE_DIST[min(AGE_DIST.keys())][0])
+x = sorted(x)
+
+y = [0.0024, 0.0024, 0.0024, 0.0024, 0.0024, 0.024]
+
 interp = Interpolate(x, y)
 
-pi = interp(iage)
-print("age: class prob, " + str({iage: pi}))
-
-# from timeit import timeit
-# print(timeit(lambda: interpolate.interp1d(x, y)(iage), number=10000))
-# print(timeit(lambda: f(iage), number=10000))
-# print(timeit(lambda: np.interp(iage, x, y), number=10000))
-# print(timeit(lambda: Interpolate(x, y)(iage), number=10000))
-# print(timeit(lambda: interp(iage), number=10000))
-# print(interp.__call__.cache_info())
+confi_lvls = clearance_lvls = np.arange(1, 6)
+confi_lvl_dist = clearance_dist = np.array([0.05, 0.25, 0.2, 0.35, 0.15])
 
 # plt.plot(x, y)
 # plt.xlabel('Age')
 # plt.ylabel('$p_{Find note}=f(Age)$')
 # plt.show()
 
-p_custom[1] = p
+df = pd.DataFrame()
 
-print("secrisk=" + str(rl.calc_sec_risk(tuple(p_custom))))
+for i in range(1000):
+    age = round(generate_age())
+    clearance_lvl=np.random.choice(clearance_lvls, p=clearance_dist)
+    p_custom = np.array(P_NORMAL)
+    pi = interp(age)
+    p_custom[1] = pi
+    p_custom = p_custom * clearance_lvl
+    secrisk = round(rl.calc_sec_risk(tuple(p_custom)), 6)
+    row = {'age': age, 'confi_lvl': clearance_lvl, 'secrisk':secrisk}
+    df = df.append(row, ignore_index=True)
+
+print(df.groupby('confi_lvl').describe())
+print(interp.__call__.cache_info())
+df.to_csv('riskdataset.csv', index=False)
