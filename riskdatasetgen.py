@@ -72,13 +72,13 @@ df = pd.DataFrame()
 
 for i in range(1000):
     age = round(generate_age())
-    clearance_lvl=np.random.choice(clearance_lvls, p=clearance_dist)
+    clearance_lvl = np.random.choice(clearance_lvls, p=clearance_dist)
     p_custom = np.array(P_NORMAL)
     pi = interp(age)
-    p_custom[1] = pi
-    p_custom = p_custom * clearance_lvl
+    p_custom[1] = pi # update age risk
+    p_custom = p_custom * (1 / clearance_lvl) # lower risk with higher clearance level
     secrisk = round(rl.calc_sec_risk(tuple(p_custom)), 6)
-    row = {'age': age, 'confi_lvl': clearance_lvl, 'secrisk':secrisk}
+    row = {'age': age, 'confi_lvl': clearance_lvl, 'secrisk': secrisk}
     df = df.append(row, ignore_index=True)
 
 print(df.groupby('confi_lvl').describe())
