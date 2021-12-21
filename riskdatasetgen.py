@@ -70,7 +70,7 @@ confi_lvl_dist = clearance_dist = np.array([0.05, 0.25, 0.2, 0.35, 0.15])
 
 df = pd.DataFrame()
 
-for i in range(1000):
+for i in range(10000):
     age = round(generate_age())
     clearance_lvl = np.random.choice(clearance_lvls, p=clearance_dist)
     p_custom = np.array(P_NORMAL)
