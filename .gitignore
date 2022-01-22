@@ -1,6 +1,7 @@
 logs/*
 *.png
 *.csv
+*.h5
 *.lnk
 *.html
 *.key
