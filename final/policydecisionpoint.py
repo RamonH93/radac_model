@@ -12,7 +12,7 @@ class PolicyDecisionPoint:
 
         self.policies = [
             self.person_exists_policy,
-            self.resource_exists_policy,
+            # self.resource_exists_policy,
             self.location_policy,
             self.is_owner_policy,
         ]
@@ -54,9 +54,10 @@ class PolicyDecisionPoint:
 
     def is_owner_policy(self, request):
         email = request['email']
-        resource = request['resource']
-        resource_data = self.pip.get_resource_attributes(resource).to_dict(orient='records')[0]
-        owner = resource_data['owner']
+        # resource = request['resource']
+        # resource_data = self.pip.get_resource_attributes(resource).to_dict(orient='records')[0]
+        # owner = resource_data['owner']
+        owner = request['owner']
         return int(email == owner)
 
 def main():

@@ -308,9 +308,11 @@ def generate_requests(employees_df=None, resources_df=None):
             'id': id_,
             'date': date,
             'time': time,
-            'resource': resource,
             'request_location': request_location,
         }
+        resource_data = resources_df.loc[resources_df['resource'] == resource].to_dict(orient='records')[0]
+        for k, v in resource_data.items():
+            request[k] = v
         for k, v in person.items():
             request[k] = v
         requests.append(request)
