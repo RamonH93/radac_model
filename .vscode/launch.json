@@ -14,5 +14,12 @@
             "program": "${workspaceFolder}\\webapp\\app.py",
             "console": "integratedTerminal"
         },
+        {
+            "name": "Python: final",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}\\final\\train_model.py",
+            "console":"integratedTerminal",
+        },
     ]
 }

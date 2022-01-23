@@ -4,6 +4,7 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 from sklearn.utils import shuffle
+from sklearn.preprocessing import MinMaxScaler
 
 from generate_pips import FOLDER, SEED
 from utils import plot_cm, plot_metrics, plot_roc
@@ -17,6 +18,12 @@ def main():
     X, y = shuffle(X, y, random_state=SEED)
     print(f'{datetime.now()} Finished shuffling.')
 
+    print(f'{datetime.now()} Started normalizing..')
+    min_max_scaler = MinMaxScaler()
+    X = min_max_scaler.fit_transform(X)
+    print(X[0])
+    print(f'{datetime.now()} Finished normalizing.')
+
     test_size = 0.2
     data_len = len(y)
     split_len = int(test_size * data_len)
@@ -28,10 +35,10 @@ def main():
     X_test, y_test = X[test_split_idx:], y[test_split_idx:]
 
     model = keras.models.Sequential([
-        keras.Input(shape=(22447, ), name='inputs'),
+        keras.Input(shape=(X_train.shape[1], ), name='inputs'),
         keras.layers.Dense(
             5000,
-            input_shape=(22447, ),
+            input_shape=(X_train.shape[1], ),
             activation=tf.nn.relu,
             name='dense_1'),
         keras.layers.Dense(
@@ -49,15 +56,15 @@ def main():
     print(model.summary())
 
     model.compile(
-        optimizer='Adam',
+        optimizer=keras.optimizers.Adam(amsgrad=True),
         loss='binary_crossentropy',
     )
     keras.utils.plot_model(model, FOLDER / 'model.png', show_shapes=True, rankdir='LR')
     print(f'\n\n\n Model compiled.\n\n\n')
     history = model.fit(
         X_train, y_train,
-        batch_size=256,
-        epochs=50,
+        batch_size=512,
+        epochs=10,
         verbose=2,
         validation_data=(X_val, y_val)
         )
@@ -70,19 +77,19 @@ def main():
         optimizer='ADAM',
         loss='BCE',
         figdir=FOLDER / 'history.png',
-        show=True,
+        show=False,
     )
     plot_roc(
         y_test,
         y_pred,
         FOLDER / 'roc.png',
-        '22447/5000/5000/1',
+        f'{datetime.now()}',
     )
     plot_cm(
         y_test,
         y_pred > 0.5,
         FOLDER / 'cm.png',
-        '22447/5000/5000/1',
+        f'{datetime.now()}',
         p=0.5,
     )
     plt.show()

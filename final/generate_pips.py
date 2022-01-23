@@ -1,6 +1,6 @@
 import random
 from pathlib import Path
-from threading import local
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,78 @@ P_EMPLOYEE_LOCATION = [0.7, 0.25, 0.05] # own/company/other country
 
 ### IMMUTABLES
 # Only locales that initialize properly with the faker module
-LOCALES = ['ar_AE', 'ar_EG', 'ar_JO', 'ar_PS', 'ar_SA', 'az_AZ', 'bg_BG', 'bn_BD', 'bs_BA', 'cs_CZ', 'da_DK', 'de_AT', 'de_CH', 'de_DE', 'el_CY', 'el_GR', 'en_AU', 'en_CA', 'en_GB', 'en_IE', 'en_IN', 'en_NZ', 'en_PH', 'en_US', 'es_CO', 'es_ES', 'es_MX', 'et_EE', 'fa_IR', 'fi_FI', 'fil_PH', 'fr_CA', 'fr_CH', 'fr_FR', 'ga_IE', 'he_IL', 'hi_IN', 'hr_HR', 'hu_HU', 'hy_AM', 'id_ID', 'it_CH', 'it_IT', 'iw_IL', 'ja_JP', 'ka_GE', 'ko_KR', 'lb_LU', 'lt_LT', 'lv_LV', 'mt_MT', 'ne_NP', 'nl_BE', 'nl_NL', 'or_IN', 'pl_PL', 'pt_BR', 'pt_PT', 'ro_RO', 'ru_RU', 'sk_SK', 'sl_SI', 'sv_SE', 'ta_IN', 'th_TH', 'tl_PH', 'tr_TR', 'uk_UA', 'zh_CN', 'zh_TW']
+LOCALES = [
+    'ar_AE',
+    'ar_EG',
+    'ar_JO',
+    # 'ar_PS',
+    # 'ar_SA',
+    # 'az_AZ',
+    # 'bg_BG',
+    'bn_BD',
+    'bs_BA',
+    # 'cs_CZ', # WEKA
+    'da_DK',
+    'de_AT',
+    'de_CH',
+    'de_DE',
+    'el_CY',
+    # 'el_GR',
+    'en_AU',
+    'en_CA',
+    'en_GB',
+    'en_IE',
+    'en_IN',
+    'en_NZ',
+    'en_PH',
+    'en_US',
+    'es_CO',
+    'es_ES',
+    'es_MX',
+    'et_EE',
+    # 'fa_IR',
+    'fi_FI',
+    'fil_PH',
+    'fr_CA',
+    'fr_CH',
+    'fr_FR',
+    'ga_IE',
+    # 'he_IL',
+    # 'hi_IN',
+    # 'hr_HR', # WEKA
+    'hu_HU',
+    # 'hy_AM',
+    'id_ID',
+    'it_CH',
+    'it_IT',
+    # 'iw_IL',
+    # 'ja_JP',
+    # 'ka_GE',
+    # 'ko_KR',
+    'lb_LU',
+    'lt_LT',
+    # 'lv_LV', # WEKA
+    'mt_MT',
+    # 'ne_NP',
+    'nl_BE',
+    'nl_NL',
+    # 'or_IN',
+    'pl_PL',
+    'pt_BR',
+    'pt_PT',
+    'ro_RO',
+    # 'ru_RU',
+    'sk_SK',
+    # 'sl_SI', # WEKA
+    'sv_SE',
+    # 'ta_IN',
+    # 'th_TH',
+    'tl_PH',
+    'tr_TR',
+    # 'uk_UA',
+    # 'zh_CN',
+    # 'zh_TW',
+]
 
 DEFAULT_COMPANY = 'TNO'
 DEFAULT_COMPANY_LOCATION = 'nl_NL'
@@ -156,8 +227,8 @@ def generate_employee(fake: Faker=None) -> dict:
         'country': country,
         'city': city,
         'company': company,
-        'unit': unit_,
-        'department': department,
+        'person_unit': unit_,
+        'person_department': department,
         'job': job,
         'phone': phone,
         'clearance_level': clearance_lvl,
@@ -182,7 +253,7 @@ def generate_employees():
         employees.append(employee)
 
         if i % (NUM_EMPLOYEES / 10) == 0:
-            print(f'Generated {i}/{NUM_EMPLOYEES} employees.')
+            print(f'{datetime.now()} Generated {i}/{NUM_EMPLOYEES} employees.')
 
     employees_df = pd.DataFrame(employees)
     return employees_df
@@ -201,10 +272,10 @@ def generate_resources(employees_df=None):
         resource = fake.unique.file_name(category=category)
         owner = np.random.choice(employees_df['email'].values)
         # Owners make files for the same unit
-        unit__ = employees_df.loc[employees_df['email'] == owner, 'unit'].values[0]
+        unit__ = employees_df.loc[employees_df['email'] == owner, 'person_unit'].values[0]
         # Department can be different through cooperation
         p_departments = []
-        own_department = employees_df.loc[employees_df['email'] == owner, 'department'].values[0]
+        own_department = employees_df.loc[employees_df['email'] == owner, 'person_department'].values[0]
         own_dept_idx = DEPARTMENTS[unit__].index(own_department)
         num_depts = len(DEPARTMENTS[unit__])
         p_other_depts = (1 - P_FILE_OWN_DEPT) / (num_depts - 1)
@@ -220,13 +291,13 @@ def generate_resources(employees_df=None):
             'resource': resource,
             'owner': owner,
             'category': category,
-            'unit': unit__,
-            'department': department_,
+            'resource_unit': unit__,
+            'resource_department': department_,
             'confidentiality_level': confidentiality_lvl,
         })
 
         if i % (NUM_RESOURCES / 10) == 0:
-            print(f'Generated {i}/{NUM_RESOURCES} resources.')
+            print(f'{datetime.now()} Generated {i}/{NUM_RESOURCES} resources.')
 
     resources_df = pd.DataFrame(resources)
     return resources_df
@@ -245,7 +316,7 @@ def generate_requests(employees_df=None, resources_df=None):
     requests = []
 
     for i in range(1, NUM_REQUESTS + 1):
-    # for i in range(1, 100):
+        # for i in range(1, 100):
 
         ### generate id, date and time
         id_ = str(i).zfill(len(str(NUM_REQUESTS)))
@@ -259,18 +330,18 @@ def generate_requests(employees_df=None, resources_df=None):
         if person is not None:
             ### Assign resource to insider, p=INSIDER_RESOURCE
             own_resources = resources_df.loc[resources_df['owner'] == person['email']]['resource'].values
-            department = person['department']
-            department_resources = resources_df.loc[resources_df['department'] == department]['resource'].values
+            department = person['person_department']
+            department_resources = resources_df.loc[resources_df['resource_department'] == department]['resource'].values
             if len(own_resources) > 0:
                 department_resources_excl_own = np.delete(department_resources, np.argwhere(np.isin(department_resources, own_resources)))
                 # department_resources_excl_own = resources_df.loc[(resources_df['department'] == department) & ~resources_df['resource'].isin(own_resources)]['resource'].values # way slower (0.08 vs 1.87 for 1000 iterations)
             else:
                 department_resources_excl_own = department_resources
-            unit = person['unit']
+            unit = person['person_unit']
             # unit_resources = resources_df.loc[resources_df['unit'] == unit]['resource'].values
             # unit_resources_excl_own_excl_dept = np.delete(unit_resources, np.append(np.argwhere(np.isin(unit_resources, own_resources)), np.argwhere(np.isin(unit_resources, department_resources_excl_own)))) # way slower (22.3 vs 3.77 for 1000 iterations)
-            unit_resources_excl_own_excl_dept = resources_df.loc[(resources_df['unit'] == unit) & (resources_df['department'] != department) & (~resources_df['resource'].isin(own_resources))]['resource'].values
-            other_resources = resources_df.loc[(resources_df['unit'] != unit) & ~resources_df['resource'].isin(own_resources)]['resource'].values
+            unit_resources_excl_own_excl_dept = resources_df.loc[(resources_df['resource_unit'] == unit) & (resources_df['resource_department'] != department) & (~resources_df['resource'].isin(own_resources))]['resource'].values
+            other_resources = resources_df.loc[(resources_df['resource_unit'] != unit) & ~resources_df['resource'].isin(own_resources)]['resource'].values
             # other_resources = np.delete(resources_df['resource'].values, np.argwhere(np.isin(resources_df['resource'].values, unit_resources))) # way slower (1.69 for 1000 iterations vs 3.42 for 10 iterations)
             try:
                 own_resource = np.random.choice(own_resources)
@@ -318,7 +389,7 @@ def generate_requests(employees_df=None, resources_df=None):
         requests.append(request)
 
         if i % (NUM_REQUESTS / 10) == 0:
-            print(f'Generated {i}/{NUM_REQUESTS} requests.')
+            print(f'{datetime.now()} Generated {i}/{NUM_REQUESTS} requests.')
 
     requests_df = pd.DataFrame(requests)
     return requests_df
@@ -330,23 +401,23 @@ def main():
         random.seed(SEED)
         np.random.seed(SEED)
 
-    # employees_df_ = generate_employees()
-    # while employees_df_['email'].nunique() != employees_df_['email'].count():
-    #     print('Email addresses not unique, trying again.')
-    #     employees_df_ = generate_employees()
-    # employees_df_.to_csv(FOLDER / 'employees.csv')
-    # print('Employees generated successfully.')
+    employees_df_ = generate_employees()
+    while employees_df_['email'].nunique() != employees_df_['email'].count():
+        print(f'{datetime.now()} Email addresses not unique, trying again.')
+        employees_df_ = generate_employees()
+    employees_df_.to_csv(FOLDER / 'employees.csv')
+    print(f'{datetime.now()} Employees generated successfully.')
 
-    # resources_df_ = generate_resources(employees_df_)
-    # while resources_df_['resource'].nunique() != resources_df_['resource'].count():
-    #     print('Resources not unique, trying again.')
-    #     resources_df_ = generate_resources(employees_df_)
-    # resources_df_.to_csv(FOLDER / 'resources.csv')
-    # print('Resources generated successfully.')
+    resources_df_ = generate_resources(employees_df_)
+    while resources_df_['resource'].nunique() != resources_df_['resource'].count():
+        print(f'{datetime.now()} Resources not unique, trying again.')
+        resources_df_ = generate_resources(employees_df_)
+    resources_df_.to_csv(FOLDER / 'resources.csv')
+    print(f'{datetime.now()} Resources generated successfully.')
 
-    # requests_df = generate_requests()
-    # requests_df.to_csv(FOLDER / 'requests.csv')
-    # print('Requests generated successfully.')
+    requests_df = generate_requests()
+    requests_df.to_csv(FOLDER / 'requests.csv')
+    print(f'{datetime.now()} Requests generated successfully.')
 
 
 if __name__ == '__main__':

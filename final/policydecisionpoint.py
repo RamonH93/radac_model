@@ -1,3 +1,4 @@
+from datetime import datetime
 import pandas as pd
 
 from generate_pips import (
@@ -6,15 +7,26 @@ from generate_pips import (
 )
 from policyinformationpoint import PolicyInformationPoint
 
+
 class PolicyDecisionPoint:
     def __init__(self) -> None:
         self.pip = PolicyInformationPoint()
+        self.weekdays = [0, 1, 2, 3, 4]
+        self.company_location = DEFAULT_COMPANY_LOCATION[-2:]
+        self.age_min = 18
+        self.age_max = 85
+        self.time_min = 7
+        self.time_max = 19
 
         self.policies = [
-            self.person_exists_policy,
-            # self.resource_exists_policy,
-            self.location_policy,
-            self.is_owner_policy,
+            self.person_exists_policy,      # 1: 26984, 0: 3016
+            # self.resource_exists_policy,    # 1: 30000, 0: 0
+            self.location_policy,           # 1: 28502, 0: 1498
+            self.is_owner_policy,           # 1: 21478, 0: 8522
+            # self.age_policy,                # 1: 20961, 0: 9039
+            # self.weekday_policy,            # 1: 21462, 0: 8538
+            # self.time_policy,               # 1: 15005, 0: 14995
+            self.clearance_policy,          # 1: 22700, 0: 7300
         ]
 
         self.active_policies = self.policies
@@ -26,53 +38,59 @@ class PolicyDecisionPoint:
                 return 0
         return 1
 
+    # 1: 26984, 0: 3016
     def person_exists_policy(self, request):
-        email = request['email']
-        employee_data = self.pip.get_employee_attributes(email)
+        employee_data = self.pip.get_employee_attributes(request['email'])
         return int(employee_data is not None)
 
-    #TODO age policy
+    # 1: 30000, 0: 0
+    def resource_exists_policy(self, request):
+        resource_data = self.pip.get_resource_attributes(request['resource'])
+        return int(resource_data is not None)
 
-    #TODO time policy
-
-    #TODO clearance level policy
-
+    # 1: 28502, 0: 1498
     def location_policy(self, request):
-        native_country = request['country']
         request_location = request['request_location']
-        if request_location == native_country:
+        if request_location == request['country']:
             return 1
-        elif request_location == DEFAULT_COMPANY_LOCATION[-2:]:
+        elif request_location == self.company_location:
             return 1
         else:
             return 0
 
-    def resource_exists_policy(self, request):
-        resource = request['resource']
-        resource_data = self.pip.get_resource_attributes(resource).to_dict(orient='records')[0]
-        return int(resource_data is not None)
-
+    # 1: 21478, 0: 8522
     def is_owner_policy(self, request):
-        email = request['email']
-        # resource = request['resource']
-        # resource_data = self.pip.get_resource_attributes(resource).to_dict(orient='records')[0]
-        # owner = resource_data['owner']
-        owner = request['owner']
-        return int(email == owner)
+        return int(request['email'] == request['owner'])
+
+    # TODO if not owner, is in own unit/dept
+    def resource_in_unit(self, request):
+        pass
+
+    # 1: 20961, 0: 9039
+    def age_policy(self, request):
+        return int(request['age'] >= self.age_min and request['age'] <= self.age_max)
+
+    # 1: 21462, 0: 8538
+    def weekday_policy(self, request):
+        return int(request['date'].weekday() in self.weekdays)
+
+    # 1: 15005, 0: 14995
+    def time_policy(self, request):
+        return int(self.time_min <= request['time'].hour < self.time_max)
+
+    # 1: 22700, 0: 7300
+    def clearance_policy(self, request):
+        return int(request['clearance_level'] >= request['confidentiality_level'])
+
 
 def main():
-    requests = pd.read_csv(FOLDER / 'requests.csv', index_col=0).to_dict(orient='records')
-    # employee = 'aronpost@tno.nl'
-    # employee_data = pip.get_employee_attributes(employee).to_dict(orient='records')[0]
-    # resource = 'either.mp3'
-    # resource_data = pip.get_resource_attributes(resource).to_dict(orient='records')[0]
-    # print(employee_data)
-    # print(employee_data['person'])
-    # print(resource_data)
+    requests = pd.read_csv(FOLDER / 'requests.csv', index_col=0
+                          ).astype({'date': 'datetime64', 'time': 'datetime64'})
 
     pdp = PolicyDecisionPoint()
     labels = []
-    for i, request in enumerate(requests):
+    for i in requests.index:
+        request = requests.iloc[i]
         id_ = str(request['id']).zfill(len(str(len(requests))))
         action = pdp.evaluate(request)
         labels.append({
@@ -80,14 +98,14 @@ def main():
             'action': action,
         })
         if i % (len(requests) / 10) == 0:
-            print(f'Generated {i}/{len(requests)} actions.')
+            print(f'{datetime.now()} Generated {i}/{len(requests)} actions.')
 
-    labels_df = pd.DataFrame(labels)
+    print(pd.DataFrame(labels)['action'].value_counts())
+
+    labels_df = pd.DataFrame(labels).set_index('id')
     labels_df.to_csv(FOLDER / 'labels.csv')
-    print('Labels generated successfully.')
+    print(f'{datetime.now()} Labels generated successfully.')
 
-    labels = pd.read_csv(FOLDER / 'labels.csv', index_col=0)
-    print(labels['action'].value_counts())
 
 if __name__ == '__main__':
     main()
