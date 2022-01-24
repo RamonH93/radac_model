@@ -1,28 +1,20 @@
 from datetime import datetime
 import matplotlib.pyplot as plt
-import pandas as pd
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from sklearn.utils import shuffle
-from sklearn.preprocessing import MinMaxScaler
 
-from generate_pips import FOLDER, SEED
+from generate_pips import FOLDER
 from utils import plot_cm, plot_metrics, plot_roc
 
 def main():
     print(f'{datetime.now()} Loading data..')
-    X = pd.read_hdf(FOLDER / 'preprocessed.h5').values
-    y = pd.read_csv(FOLDER / 'labels.csv')['action'].values
+    # X = pd.read_hdf(FOLDER / 'preprocessed.h5').values
+    # y = pd.read_csv(FOLDER / 'labels.csv')['action'].values
+    npzfile = np.load(FOLDER / 'Xy.npz')
+    X = npzfile['X']
+    y = npzfile['y']
     print(f'{datetime.now()} Loaded successfully.')
-    print(f'{datetime.now()} Started shuffling..')
-    X, y = shuffle(X, y, random_state=SEED)
-    print(f'{datetime.now()} Finished shuffling.')
-
-    print(f'{datetime.now()} Started normalizing..')
-    min_max_scaler = MinMaxScaler()
-    X = min_max_scaler.fit_transform(X)
-    print(X[0])
-    print(f'{datetime.now()} Finished normalizing.')
 
     test_size = 0.2
     data_len = len(y)
@@ -37,18 +29,18 @@ def main():
     model = keras.models.Sequential([
         keras.Input(shape=(X_train.shape[1], ), name='inputs'),
         keras.layers.Dense(
-            5000,
+            100,
             input_shape=(X_train.shape[1], ),
             activation=tf.nn.relu,
             name='dense_1'),
         keras.layers.Dense(
-            5000,
-            input_shape=(5000, ),
+            100,
+            input_shape=(100, ),
             activation=tf.nn.relu,
             name='dense_2'),
         keras.layers.Dense(
             1,
-            input_shape=(5000, ),
+            input_shape=(100, ),
             activation=tf.nn.sigmoid,
             name='output'),
     ])
@@ -56,15 +48,15 @@ def main():
     print(model.summary())
 
     model.compile(
-        optimizer=keras.optimizers.Adam(amsgrad=True),
+        optimizer=keras.optimizers.Adam(amsgrad=False),
         loss='binary_crossentropy',
     )
     keras.utils.plot_model(model, FOLDER / 'model.png', show_shapes=True, rankdir='LR')
     print(f'\n\n\n Model compiled.\n\n\n')
     history = model.fit(
         X_train, y_train,
-        batch_size=512,
-        epochs=10,
+        batch_size=4096,
+        epochs=111,
         verbose=2,
         validation_data=(X_val, y_val)
         )
@@ -97,3 +89,12 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
+    # print(f'{datetime.now()} Loading data..')
+    # X = pd.read_hdf(FOLDER / 'preprocessed.h5').values
+    # y = pd.read_csv(FOLDER / 'labels.csv')['action'].values
+    # npzfile = np.load(FOLDER / 'Xy.npz')
+    # X = npzfile['X']
+    # y = npzfile['y']
+    # print(f'{datetime.now()} Loaded successfully.')
+    # print(X[0])

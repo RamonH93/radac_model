@@ -264,6 +264,12 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
                 marker='o',
                 color='black',
                 label="Optimal threshold = %0.2f" % opt_threshold)
+    p_idx = np.argmax(thresholds < 0.5)
+    plt.scatter(fpr[p_idx],
+                tpr[p_idx],
+                marker='o',
+                color='red',
+                label="Actual threshold = %0.2f" % 0.5)
     plt.vlines(x=fpr[opt_idx],
                ymin=fpr[opt_idx],
                ymax=tpr[opt_idx],
@@ -274,7 +280,7 @@ def plot_roc(labels, predictions, logdir_fig, paramset):
     handles, labels = plt.gca().get_legend_handles_labels()
     handles.append(lc)
     labels.append('ROC AUC = %0.2f' % roc_auc)
-    order = [3, 1, 2, 0]
+    order = [4, 3, 1, 2, 0]
     plt.legend(handles=[handles[idx] for idx in order],
                labels=[labels[idx] for idx in order],
                loc='lower right',

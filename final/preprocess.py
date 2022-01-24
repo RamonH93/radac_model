@@ -3,14 +3,18 @@ from datetime import datetime
 # from pathlib import Path
 
 # import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 # from pandas_profiling import ProfileReport
+from sklearn.utils import shuffle
+from sklearn.preprocessing import MinMaxScaler
 
 from generate_pips import (
-    FOLDER,
     CONFIDENTIALITY_LVLS,
     CLEARANCE_LVLS,
+    FOLDER,
+    SEED,
 )
 
 CONFIDENTIALITY_LVLS_DTYPE = CategoricalDtype(CONFIDENTIALITY_LVLS, ordered=True)
@@ -22,9 +26,9 @@ DTYPES = {
     'date': 'datetime64',               #? ohe day or bin week/weekend
     'time': 'datetime64',               #? ohe hour int or bin
     'request_location': 'category',     #* ohe
-    'resource': 'string',               #! drop
+    'resource': 'string',               #! drop until policy
     'owner': 'category',                #* ohe
-    'category': 'category',             #! drop
+    'category': 'category',             #! drop until policy
     'resource_unit': 'category',        #! drop until policy
     'resource_department': 'category',  #! drop until policy
     'confidentiality_level':
@@ -33,12 +37,12 @@ DTYPES = {
     'name': 'category',                 #! drop
     'age': 'int64',                     #? nothing/or bin
     'country': 'category',              #* ohe
-    'city': 'category',                 #! drop
-    'company': 'category',              #! drop
+    'city': 'category',                 #! drop until policy
+    'company': 'category',              #! drop until policy
     'person_unit': 'category',          #! drop until policy
     'person_department': 'category',    #! drop until policy
     'job': 'category',                  #! drop until policy
-    'phone': 'string',                  #! drop
+    'phone': 'string',                  #! drop until policy
     'clearance_level':
     CLEARANCE_LVLS_DTYPE,               #? cat.codes
 }
@@ -50,7 +54,7 @@ def prepare_request(request: pd.DataFrame):
     return request
 
 def main():
-    df = pd.read_csv(FOLDER / 'requests.csv', index_col=0).astype(DTYPES)
+    df = pd.read_csv(FOLDER / 'requests.csv').astype(DTYPES)
 
     # print(df.dtypes)
     # print(df.iloc[0])
@@ -73,19 +77,19 @@ def main():
     ]
     to_ohe = [
         'request_location',
-        'owner',
-        'email',
+        # 'owner',
+        # 'email',
         'country',
     ]
 
     #! drop columns
-    df.drop(to_drop, inplace=True, axis=1)
+    df.drop(to_drop, axis=1, inplace=True)
 
     # print(pd.DataFrame([df['clearance_level'], df['clearance_level'].cat.codes]).transpose().tail(10))
 
     #! preprocess date
-    new_date_series = df['date'].copy()
-    for i in range(len(new_date_series)):
+    new_date_series = pd.Series(np.zeros(df['date'].size, dtype='int64'))
+    for i in range(new_date_series.size):
         #? as binned week and weekend days
         # new_date_series.iloc[i] = int(df['date'].iloc[i].weekday() in WEEKDAYS
 
@@ -93,11 +97,11 @@ def main():
         new_date_series.iloc[i] = df['date'].iloc[i].weekday()
         if i == 0:
             to_ohe.append('date')
-    df['date'] = new_date_series.astype('category')
+    df['date'] = new_date_series
 
     #! preprocess time
-    new_time_series = df['time'].copy()
-    for i in range(len(new_time_series)):
+    new_time_series = pd.Series(np.zeros(df['time'].size, dtype='int64'))
+    for i in range(new_time_series.size):
         #? as seconds
         new_time_series.iloc[i] = (
             df['time'].iloc[i].hour * 60 * 60 +
@@ -105,6 +109,17 @@ def main():
             df['time'].iloc[i].second
         )
     df['time'] = new_time_series.astype('int64')
+
+    #! preprocess email, owner
+    print(f'{datetime.now()} Starting is_owner_series...')
+    is_owner_series = pd.Series(np.zeros(df['email'].size, dtype='int64'))
+    for i in range(is_owner_series.size):
+        is_owner_series[i] = int(df['email'].iloc[i] == df['owner'].iloc[i])
+    df.drop(['email', 'owner'], axis=1, inplace=True)
+    df['is_owner'] = is_owner_series
+    print(f'{datetime.now()} Finished is_owner_series.')
+
+
     df['confidentiality_level'] = df['confidentiality_level'].cat.codes
     df['age'] = df['age']
     df['clearance_level'] = df['clearance_level'].cat.codes
@@ -113,15 +128,30 @@ def main():
     for col in to_ohe:
         print(f'{datetime.now()} Starting one hot encoding of {col}...')
         one_hot = pd.get_dummies(df[col], prefix=col)
+        print(f'{datetime.now()} {col}: {len(one_hot.columns)} columns.')
         df.drop(col, inplace=True, axis=1)
         df = df.join(one_hot)
     print(f'{datetime.now()} Finished: {len(df.columns)} columns.')
 
-    df.to_hdf(FOLDER / 'preprocessed.h5', key='requests', mode='w')
+    X = df.values
+    y = pd.read_csv(FOLDER / 'labels.csv')['action'].values
+    print(f'{datetime.now()} Started normalizing..')
+    min_max_scaler = MinMaxScaler()
+    X = min_max_scaler.fit_transform(X)
+    print(f'{datetime.now()} Finished normalizing.')
+
+    print(f'{datetime.now()} Started shuffling..')
+    X, y = shuffle(X, y, random_state=SEED)
+    print(f'{datetime.now()} Finished shuffling.')
+
+    np.savez(FOLDER / 'Xy.npz', X=X, y=y)
+
+    # df.to_csv(FOLDER / 'preprocessed.csv')
+    # df.to_hdf(FOLDER / 'preprocessed.h5', key='requests', mode='w')
     print(f'{datetime.now()} Preprocessed successfully.')
 
 if __name__ == '__main__':
     main()
-    # df = pd.read_csv(FOLDER / 'requests.csv', index_col=0).set_index('id')
+    # df = pd.read_csv(FOLDER / 'requests.csv', index_col=0)
     # df['action'] = pd.read_csv(FOLDER / 'labels.csv', index_col=0)['action']
-    # df.to_csv(FOLDER / 'requests_weka.csv', quoting=QUOTE_ALL)
+    # df.to_csv(FOLDER / 'requests_weka.csv', quoting=QUOTE_ALL, index=False)

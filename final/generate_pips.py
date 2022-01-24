@@ -18,16 +18,18 @@ FOLDER = Path('final')
 
 # EMPLOYEES PROBABILITIES
 P_NATIONALITY = [0.5, 0.5] # of having same nationality as default company
-P_COMPANY = [0.9, 0.1] # of working for the default company or another
+P_COMPANY = [0.95, 0.05] # of working for the default company or another
 P_CLEARANCE_LVLS = [0.3, 0.25, 0.2, 0.15, 0.1] # unclassified to top secret
 
 # RESOURCES PROBABILITIES
-P_FILE_OWN_DEPT = 0.8 # p file created within own department or other within unit
+P_FILE_OWN_DEPT = 0.95 # p file created within own department or other within unit
 P_CONFIDENTIALITY_LVLS = P_CLEARANCE_LVLS  # unclassified to top secret
 
 # REQUESTS PROBABILITIES
-P_INSIDER = [0.9, 0.1]
-P_INSIDER_RESOURCE = [0.8, 0.13, 0.05, 0.02] # own/department/unit/other resource
+P_BUSINESS_DAYS = [0.95, 0.05]
+P_WORKING_HOURS = [0.95, 0.05]
+P_INSIDER = [0.95, 0.05]
+P_INSIDER_RESOURCE = [0.8, 0.15, 0.04, 0.01] # own/department/unit/other resource
 P_EMPLOYEE_LOCATION = [0.7, 0.25, 0.05] # own/company/other country
 
 ### IMMUTABLES
@@ -58,7 +60,7 @@ LOCALES = [
     'en_PH',
     'en_US',
     'es_CO',
-    'es_ES',
+    # 'es_ES', # WEKA
     'es_MX',
     'et_EE',
     # 'fa_IR',
@@ -71,7 +73,7 @@ LOCALES = [
     # 'he_IL',
     # 'hi_IN',
     # 'hr_HR', # WEKA
-    'hu_HU',
+    # 'hu_HU', # WEKA
     # 'hy_AM',
     'id_ID',
     'it_CH',
@@ -133,7 +135,7 @@ UNITS = [
     'Industry',
     'Healthy Living',
     'Traffic & Transport',
-    'Information & Communication Technology'
+    'Information & Communication Technology',
 ]
 DEPARTMENTS = {
     'Artificial Intelligence': [
@@ -194,6 +196,23 @@ class MyProvider(BaseProvider):
 
     def job(self) -> str:
         return np.random.choice(JOB_PREFIX) + ' ' + np.random.choice(JOB_TITLES)
+
+    def date(self) -> str:
+        start = datetime(2022, 1, 1)
+        end = datetime(2022, 2, 1)
+        businessdays = pd.bdate_range(start=start, end=end)
+        alldays = pd.date_range(start=start, end=end)
+        weekenddays = np.delete(alldays, np.argwhere(np.isin(alldays, businessdays)))
+        day = np.random.choice(np.random.choice(np.array([businessdays, weekenddays], dtype=object), p=P_BUSINESS_DAYS))
+        return pd.to_datetime(str(day)).strftime('%Y-%m-%d')
+
+    def time(self) -> str:
+        working_hours = range(8, 19)
+        other_hours = np.append(range(8), (range(19, 24)))
+        hour = np.random.choice(np.random.choice(np.array([working_hours, other_hours], dtype=object), p=P_WORKING_HOURS))
+        minute = np.random.randint(60)
+        second = np.random.randint(60)
+        return datetime.strptime(f'{hour}:{minute}:{second}', '%H:%M:%S')
 
     def unit(self) -> str:
         return np.random.choice(UNITS)
@@ -285,7 +304,9 @@ def generate_resources(employees_df=None):
             else:
                 p_departments.append(p_other_depts)
         department_ = np.random.choice(DEPARTMENTS[unit__], p=p_departments)
-        confidentiality_lvl = np.random.choice(CONFIDENTIALITY_LVLS, p=P_CONFIDENTIALITY_LVLS)
+        owner_clearance = employees_df.loc[employees_df['email'] == owner]['clearance_level'].values[0]
+        confi_start_idx = CLEARANCE_LVLS.index(owner_clearance)
+        confidentiality_lvl = np.random.choice(CONFIDENTIALITY_LVLS[:confi_start_idx+1])
 
         resources.append({
             'resource': resource,
@@ -320,7 +341,7 @@ def generate_requests(employees_df=None, resources_df=None):
 
         ### generate id, date and time
         id_ = str(i).zfill(len(str(NUM_REQUESTS)))
-        date = fake.date_between('-1y', 'today')
+        date = fake.date()
         time = fake.time()
 
         #high chance of insider vs outsider
@@ -416,7 +437,7 @@ def main():
     print(f'{datetime.now()} Resources generated successfully.')
 
     requests_df = generate_requests()
-    requests_df.to_csv(FOLDER / 'requests.csv')
+    requests_df.to_csv(FOLDER / 'requests.csv', index=False)
     print(f'{datetime.now()} Requests generated successfully.')
 
 
