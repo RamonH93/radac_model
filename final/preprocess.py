@@ -134,17 +134,20 @@ def main():
     print(f'{datetime.now()} Finished: {len(df.columns)} columns.')
 
     X = df.values
-    y = pd.read_csv(FOLDER / 'labels.csv')['action'].values
+    y_a = pd.read_csv(FOLDER / 'labels.csv')['action'].values
+    y_r = pd.read_csv(FOLDER / 'labels.csv')['riskscore'].values
     print(f'{datetime.now()} Started normalizing..')
     min_max_scaler = MinMaxScaler()
     X = min_max_scaler.fit_transform(X)
+    y_r = [[y] for y in y_r]
+    y_r = min_max_scaler.fit_transform(y_r)
     print(f'{datetime.now()} Finished normalizing.')
 
     print(f'{datetime.now()} Started shuffling..')
-    X, y = shuffle(X, y, random_state=SEED)
+    X, y_a, y_r = shuffle(X, y_a, y_r, random_state=SEED)
     print(f'{datetime.now()} Finished shuffling.')
 
-    np.savez(FOLDER / 'Xy.npz', X=X, y=y)
+    np.savez(FOLDER / 'Xys.npz', X=X, y_a=y_a, y_r=y_r)
 
     # df.to_csv(FOLDER / 'preprocessed.csv')
     # df.to_hdf(FOLDER / 'preprocessed.h5', key='requests', mode='w')

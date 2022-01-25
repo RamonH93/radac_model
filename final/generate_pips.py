@@ -30,6 +30,7 @@ P_BUSINESS_DAYS = [0.95, 0.05]
 P_WORKING_HOURS = [0.95, 0.05]
 P_INSIDER = [0.95, 0.05]
 P_INSIDER_RESOURCE = [0.8, 0.15, 0.04, 0.01] # own/department/unit/other resource
+P_IMPERSONATOR = [0.05, 0.95] # if outsider, 5% to impersonate insider
 P_EMPLOYEE_LOCATION = [0.7, 0.25, 0.05] # own/company/other country
 
 ### IMMUTABLES
@@ -374,15 +375,30 @@ def generate_requests(employees_df=None, resources_df=None):
             resource = np.random.choice([own_resource, department_resource, unit_resource, other_resource], p=P_INSIDER_RESOURCE)
         else:
             ### generate outsider, request random resource
-            locale = np.random.choice(LOCALES)
-            if locale not in fakers.keys():
-                fakers[locale] = Faker(locale)
-                fakers[locale].add_provider(MyProvider)
-            fake = fakers[locale]
-            person = generate_employee(fake)
-            while person['email'] in employees_df['email']:
+            impersonator = np.random.choice([1, 0], p=P_IMPERSONATOR)
+            if impersonator:
+                person = employees_df.sample().to_dict('records')[0]
+                # try privilege escalation
+                if person['clearance_level'] != CLEARANCE_LVLS[-1]:
+                    start_idx = CLEARANCE_LVLS.index(person['clearance_level']) + 1
+                    person['clearance_level'] = np.random.choice(CLEARANCE_LVLS[start_idx:])
+                    confi_resources = resources_df.loc[(resources_df['confidentiality_level'] == CONFIDENTIALITY_LVLS[start_idx]) & (resources_df['resource_unit'] == person['person_unit'])]['resource'].values
+                    resource = np.random.choice(confi_resources)
+                else:
+                    # gotten age wrong, try to request person's resource
+                    person['age'] = fake.age()
+                    own_resources = resources_df.loc[resources_df['owner'] == person['email']]['resource'].values
+                    resource = np.random.choice(own_resources)
+            else:
+                locale = np.random.choice(LOCALES)
+                if locale not in fakers.keys():
+                    fakers[locale] = Faker(locale)
+                    fakers[locale].add_provider(MyProvider)
+                fake = fakers[locale]
                 person = generate_employee(fake)
-            resource = np.random.choice(resources_df['resource'])
+                while person['email'] in employees_df['email']:
+                    person = generate_employee(fake)
+                resource = np.random.choice(resources_df['resource'])
 
         ### generate request location
         native_country = person['country']

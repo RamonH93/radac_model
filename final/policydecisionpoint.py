@@ -72,7 +72,7 @@ class PolicyDecisionPoint:
                 n_deny = 0
             print(f'{policy.__name__} - 1: {n_permit}, 0: {n_deny}')
 
-    # 1: 21335, 0: 8665
+    # 1: 21324, 0: 8676
     def evaluate(self, request):
         # C.1 Extended Indeterminate values
         # C.2 Deny-overrides
@@ -146,10 +146,21 @@ class PolicyDecisionPoint:
 
 class RiskAssessmentPoint:
     def __init__(self) -> None:
+        self.LOW = 0.2
+        self.LOWMED = 0.35
+        self.MEDIUM = 0.5
+        self.HIGH = 1.0
         self.pip = PolicyInformationPoint()
-        self.p = [
-
-        ]
+        self.weekdays = [0, 1, 2, 3, 4]
+        self.company_location = DEFAULT_COMPANY_LOCATION[-2:]
+        self.time_min = 7
+        self.time_max = 19
+        self.leaves_probs = {
+            'third_party': 0.0,
+            'impostor': 0.0,
+            'hacker': 0.0,
+            'appetite': 0.0,
+        }
 
     @lru_cache()
     def is_even(self, n):
@@ -185,9 +196,102 @@ class RiskAssessmentPoint:
                     res += prod
         return res
 
-    def evaluate(self, request):
-        import numpy as np
-        return round(5 * np.random.rand(), 2)
+    # BEFORE PREPROCESSING (MINMAX SCALER)
+    # action  riskscore    counts
+    # 1       0.59         18523
+    # 0       1.00          4068
+    #         0.74          2850
+    # 1       0.67          2782
+    # 0       0.67          1067
+    #         0.79           393
+    #         0.73           145
+    #         0.84           130
+    # 1       1.00            14
+    # 0       0.87            10
+    #         0.83             8
+    # 1       0.74             5
+    # 0       0.90             5
+
+    # AFTER PREPROCESSING (MINMAX SCALER)
+    # 1       0.000000     18523
+    # 0       1.000000      4068
+    #         0.365854      2850
+    # 1       0.195122      2782
+    # 0       0.195122      1067
+    #         0.487805       393
+    #         0.341463       145
+    #         0.609756       130
+    # 1       1.000000        14
+    # 0       0.682927        10
+    #         0.585366         8
+    # 1       0.365854         5
+    # 0       0.756098         5
+    def evaluate(self, request) -> float:
+        self.update_leaf_nodes(request)
+        root_risk = self.calculate_root_risk()
+        return round(root_risk, 2)
+
+    def calculate_root_risk(self) -> float:
+        # calculates root risk with leaves probabilities and tree structure
+        root_risk = self.or_node(self.leaves_probs.values())
+        return root_risk
+
+    def update_leaf_nodes(self, request):
+        ### takes request and updates self.leaves_probs
+        employee_data = self.pip.get_employee_attributes(request['email'])
+        # SET THIRD PARTY RISK low
+        # SET IMPOSTOR RISK low
+        self.leaves_probs['third_party'] = self.LOW
+        self.leaves_probs['impostor'] = self.LOW
+        if employee_data is None:
+            #! SET THIRD PARTY RISK high
+            self.leaves_probs['third_party'] = self.LOW
+        elif request['company'] != DEFAULT_COMPANY:
+            # SET THIRD PARTY RISK medium
+            self.leaves_probs['third_party'] = self.MEDIUM
+        if employee_data is not None:
+            for attribute in employee_data.columns:
+                if employee_data[attribute].values[0] != request[attribute]:
+                    if attribute != 'clearance_level':
+                        # SET IMPOSTOR RISK medium
+                        self.leaves_probs['impostor'] = self.MEDIUM
+                    else:
+                        #! SET IMPOSTOR RISK high
+                        self.leaves_probs['impostor'] = self.HIGH
+                    break
+        #? TREE: if THIRD PARTY low & IMPOSTOR high -> negate THIRD PARTY
+
+        # SET HACKER RISK low
+        self.leaves_probs['hacker'] = self.LOW
+        if request['time'].hour < self.time_min or request['time'].hour >= self.time_max:
+            # SET HACKER RISK medium
+            self.leaves_probs['hacker'] = self.MEDIUM
+        elif request['date'].weekday() not in self.weekdays:
+            # SET HACKER RISK lowmed
+            self.leaves_probs['hacker'] = self.LOWMED
+        if request['request_location'] not in [request['country'], self.company_location]:
+            #! SET HACKER RISK high
+            self.leaves_probs['hacker'] = self.HIGH
+        #? TREE: IMPOSTOR low & HACKER high -> negate impostor
+
+        if CLEARANCE_LVLS.index(request['clearance_level']) < CONFIDENTIALITY_LVLS.index(request['confidentiality_level']):
+            #! SET APPETITE RISK high
+            self.leaves_probs['appetite'] = self.HIGH
+        elif request['email'] == request['owner']:
+            # SET APPETITE RISK low
+            self.leaves_probs['appetite'] = self.LOW
+            #? TREE: IMPOSTOR high & APPETITE low -> negate appetite
+        elif request['resource_department'] == request['person_department']:
+            # SET APPETITE RISK low-medium
+            self.leaves_probs['appetite'] = self.LOWMED
+        elif request['resource_unit'] == request['person_unit']:
+            # SET APPETITE RISK medium
+            self.leaves_probs['appetite'] = self.MEDIUM
+            
+        else:
+            # file from outside unit
+            #! SET APPETITE RISK high
+            self.leaves_probs['appetite'] = self.HIGH
 
 
 def main():
@@ -219,6 +323,10 @@ if __name__ == '__main__':
     main()
     # requests = pd.read_csv(FOLDER / 'requests.csv', index_col=0,
     #                       ).astype({'date': 'datetime64', 'time': 'datetime64'})
+    # rap = RiskAssessmentPoint()
+    # request = requests.iloc[0]
+    # print(rap.evaluate(request))
+
     # pdp = PolicyDecisionPoint()
     # pdp.test_policies(requests)
     # exists = []
