@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
-import numpy as np
+# import numpy as np
 import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import mean_squared_error
 from sklearn.utils import shuffle
 from tensorflow import keras
+
+from utils import plot_metrics
 
 SEED = 1
 
@@ -61,7 +63,6 @@ print(rmse)
 
 keras.utils.plot_model(model, show_shapes=True, rankdir='LR')
 
-from utils import plot_metrics
 plot_metrics(history, optimizer='SGD', loss='MSE', show=True)
 
 fig, ax = plt.subplots()

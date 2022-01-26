@@ -48,6 +48,10 @@ def main():
     except RuntimeError:
         logger.warning('Log device placement: ', 'failed to set')
 
+    # # Set device here to remove 5 min wait for adding device in runtime
+    # gpus = tf.config.list_physical_devices('GPU')
+    # tf.config.set_visible_devices(gpus[0], 'GPU')
+
     # Add MCC so we can use it as a string
     tf.keras.utils.get_custom_objects().update(
         {'MCC': utils.MatthewsCorrelationCoefficient})

@@ -305,6 +305,7 @@ def plot_metrics(history: keras.callbacks.History,
     loss_color = 'tab:red'
     ax1.set_xlabel('epoch')
     ax1.set_ylabel('loss', color=loss_color)
+    # ax1.set_yscale('log')
     ax1.set_xlim(history.epoch[0] - 1, history.epoch[-1] + 1)
     ax1.set_ylim(
         0, 1.05 *

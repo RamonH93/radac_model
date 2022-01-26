@@ -1,11 +1,13 @@
+import os
 from datetime import datetime
 import matplotlib.pyplot as plt
+import random
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 
-from generate_pips import FOLDER
+from generate_pips import FOLDER, SEED
 from utils import (
     MatthewsCorrelationCoefficient,
     plot_cm,
@@ -20,7 +22,16 @@ EARLYSTOPPING = keras.callbacks.EarlyStopping(
     verbose=1
     )
 
+def summarize_keras_trainable_variables(model, message):
+    s = sum(map(lambda x: x.sum(), model.get_weights()))
+    print("summary of trainable variables %s: %.13f" % (message, s))
+    return s
+
 def main(risk=False, regression=False):
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
     keras.backend.clear_session()
 
     print(f'{datetime.now()} Loading data..')
@@ -142,6 +153,8 @@ def main(risk=False, regression=False):
         loss=loss,
         metrics=metrics,
     )
+    summarize_keras_trainable_variables(model, "before training")
+    # summary of trainable variables before training: -34.9238157272339
     keras.utils.plot_model(model, FOLDER / 'model.png', show_shapes=True, rankdir='LR')
     print(f'\n\n\n Model compiled.\n\n\n')
 
@@ -154,6 +167,8 @@ def main(risk=False, regression=False):
         validation_data=(X_val, y_val)
         )
 
+    summarize_keras_trainable_variables(model, "after training")
+    # summary of trainable variables after training: -50.9813705242705
 
     y_pred = model.predict(X_test)#.flatten()
     # from sklearn.metrics import mean_squared_error
@@ -161,14 +176,13 @@ def main(risk=False, regression=False):
     # print(np.count_nonzero(y_pred == y_test))
 
     plot_metrics(
-        history,  
+        history,
         optimizer='ADAM',
         loss='BCE',
         figdir=FOLDER / 'history.png',
         show=False,
     )
     if risk and regression:
-        # fig, ax = plt.subplots()
         plt.plot([0, 1], [0, 1], 'r--')
         plt.scatter(y_test, y_pred)
         plt.xlabel('Ground Truth')
@@ -177,17 +191,12 @@ def main(risk=False, regression=False):
         plt.close()
 
         import seaborn as sns
-        # data = {}
-        # for (t, p) in zip(y_test, y_pred):
-        #     if t[0] not in data.keys():
-        #         data[t[0]] = []
-        #     data[t[0]].append(p[0])
         df = pd.DataFrame({'y_true': y_test.flatten(), 'y_pred': y_pred.flatten()})
         data = pd.DataFrame()
         for k in np.unique(df['y_true']):
             data[k] = pd.Series(df.loc[df['y_true'] == k]['y_pred'].values)
         data.columns = [round(col, 2) for col in data.columns]
-        sns.boxplot(data=data, palette="Set1")
+        sns.boxplot(data=data, palette="Set1", showfliers=False)
         plt.savefig(FOLDER / 'boxplot.png')
         plt.close()
     elif risk:
@@ -219,4 +228,4 @@ def main(risk=False, regression=False):
 
 
 if __name__ == '__main__':
-    main(risk=True, regression=True)
+    main(risk=True, regression=False)

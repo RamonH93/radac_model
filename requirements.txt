@@ -8,7 +8,8 @@ graphviz
 numpy<=1.19.3
 pandas
 pandas-profiling>=2.6.0
-faker
+pytables
+faker==11.3.0
 zeep
 xmltodict
 toml
