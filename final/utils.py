@@ -164,11 +164,19 @@ class MatthewsCorrelationCoefficient(tf.keras.metrics.Metric):
         return mcc
 
 
-def plot_cm(y_test, y_pred, logdir_fig, paramset, p=0.5):
-    sns.heatmap(confusion_matrix(y_test, y_pred),
-                cmap="YlGnBu",
-                annot=True,
-                fmt="d")
+def plot_cm(y_test, y_pred, logdir_fig, paramset, p=0.5, risk=False):
+    if risk:
+        sns.heatmap(confusion_matrix(y_test, y_pred),
+                    cmap="YlGnBu",
+                    annot=True,
+                    xticklabels=[0.00, 0.20, 0.34, 0.37, 0.49, 0.59, 0.61, 0.69, 0.76, 1.00],
+                    yticklabels=[0.00, 0.20, 0.34, 0.37, 0.49, 0.59, 0.61, 0.69, 0.76, 1.00],
+                    fmt="d")
+    else:
+        sns.heatmap(confusion_matrix(y_test, y_pred),
+                    cmap="YlGnBu",
+                    annot=True,
+                    fmt="d")
     plt.title(f'{paramset}\n'
               f'Confusion matrix @{p:.2f}, '
               f'n={len(y_test)}, '

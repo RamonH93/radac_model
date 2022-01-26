@@ -2,6 +2,7 @@ logs/*
 *.png
 *.csv
 *.h5
+*.npz
 *.lnk
 *.html
 *.key
