@@ -139,6 +139,7 @@ def main():
     print(f'{datetime.now()} Started normalizing..')
     min_max_scaler = MinMaxScaler()
     X = min_max_scaler.fit_transform(X)
+    y_a = [[y] for y in y_a]
     y_r = [[y] for y in y_r]
     y_r = min_max_scaler.fit_transform(y_r)
     print(f'{datetime.now()} Finished normalizing.')
