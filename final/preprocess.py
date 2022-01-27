@@ -54,7 +54,20 @@ def prepare_request(request: pd.DataFrame):
     return request
 
 def main():
-    df = pd.read_csv(FOLDER / 'requests.csv').astype(DTYPES)
+    # person_exists_policy - 1: 28587, 0: 1413
+    # resource_exists_policy - 1: 30000, 0: 0
+    # location_policy - 1: 28481, 0: 1519
+    # resource_in_unit_policy - 1: 28501, 0: 1499
+    # owner_or_department_policy - 1: 27135, 0: 2865
+    # weekday_policy - 1: 28493, 0: 1507
+    # time_policy - 1: 28633, 0: 1367
+    # company_policy - 1: 28442, 0: 1558
+    # clearance_policy - 1: 28575, 0: 1425
+    policy = 'company_policy'
+    df = pd.read_csv(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}.csv').astype(DTYPES)
+    # df = pd.read_csv(FOLDER / 'requests.csv').astype(DTYPES)
+    ids = df['id'].values
+    resources_df = pd.read_csv(FOLDER / 'requests.csv').astype(DTYPES)
 
     # print(df.dtypes)
     # print(df.iloc[0])
@@ -89,6 +102,7 @@ def main():
 
     #! preprocess date
     new_date_series = pd.Series(np.zeros(df['date'].size, dtype='int64'))
+    new_resources_date_series = pd.Series(np.zeros(resources_df['date'].size, dtype='int64'))
     for i in range(new_date_series.size):
         #? as binned week and weekend days
         # new_date_series.iloc[i] = int(df['date'].iloc[i].weekday() in WEEKDAYS
@@ -97,7 +111,15 @@ def main():
         new_date_series.iloc[i] = df['date'].iloc[i].weekday()
         if i == 0:
             to_ohe.append('date')
+    
+    for i in range(new_resources_date_series.size):
+        #? as binned week and weekend days
+        # new_date_series.iloc[i] = int(df['date'].iloc[i].weekday() in WEEKDAYS
+
+        #? as ohe days of week
+        new_resources_date_series.iloc[i] = resources_df['date'].iloc[i].weekday()
     df['date'] = new_date_series
+    resources_df['date'] = new_resources_date_series
 
     #! preprocess time
     new_time_series = pd.Series(np.zeros(df['time'].size, dtype='int64'))
@@ -119,23 +141,28 @@ def main():
     df['is_owner'] = is_owner_series
     print(f'{datetime.now()} Finished is_owner_series.')
 
-
-    df['confidentiality_level'] = df['confidentiality_level'].cat.codes
+    df['confidentiality_level'] = resources_df['confidentiality_level'].cat.codes
     df['age'] = df['age']
-    df['clearance_level'] = df['clearance_level'].cat.codes
+    df['clearance_level'] = resources_df['clearance_level'].cat.codes
 
     print(f'{datetime.now()} Starting ohe...')
-    for col in to_ohe:
-        print(f'{datetime.now()} Starting one hot encoding of {col}...')
-        one_hot = pd.get_dummies(df[col], prefix=col)
-        print(f'{datetime.now()} {col}: {len(one_hot.columns)} columns.')
-        df.drop(col, inplace=True, axis=1)
-        df = df.join(one_hot)
+    for icol in to_ohe:
+        print(f'{datetime.now()} Starting one hot encoding of {icol}...')
+        ohe_orig_cols = pd.get_dummies(resources_df[icol], prefix=icol).columns
+        one_hot = pd.get_dummies(df[icol], prefix=icol)
+        for jcol in ohe_orig_cols:
+            if jcol in one_hot.columns:
+                df[jcol] = one_hot[jcol]
+            else:
+                df[jcol] = 0
+        print(f'{datetime.now()} {icol}: {len(ohe_orig_cols)} columns.')
+        df.drop(icol, inplace=True, axis=1)
     print(f'{datetime.now()} Finished: {len(df.columns)} columns.')
+    print(df.columns)
 
     X = df.values
-    y_a = pd.read_csv(FOLDER / 'labels.csv')['action'].values
-    y_r = pd.read_csv(FOLDER / 'labels.csv')['riskscore'].values
+    y_a = pd.read_csv(FOLDER / 'labels.csv').iloc[ids-1]['action'].values
+    y_r = pd.read_csv(FOLDER / 'labels.csv').iloc[ids-1]['riskscore'].values
     print(f'{datetime.now()} Started normalizing..')
     min_max_scaler = MinMaxScaler()
     X = min_max_scaler.fit_transform(X)
@@ -148,7 +175,7 @@ def main():
     X, y_a, y_r = shuffle(X, y_a, y_r, random_state=SEED)
     print(f'{datetime.now()} Finished shuffling.')
 
-    np.savez(FOLDER / 'Xys.npz', X=X, y_a=y_a, y_r=y_r)
+    # np.savez(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}.npz', X=X, y_a=y_a, y_r=y_r)
 
     # df.to_csv(FOLDER / 'preprocessed.csv')
     # df.to_hdf(FOLDER / 'preprocessed.h5', key='requests', mode='w')

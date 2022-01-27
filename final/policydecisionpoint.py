@@ -57,10 +57,15 @@ class PolicyDecisionPoint:
         to_test = self.active_policies if policy is None else [policy]
         for policy in to_test:
             labels = []
+            deny_idxs = []
             for i in requests.index:
                 request = requests.iloc[i-1]
                 action = policy(request)
                 labels.append(action)
+                if action == 0:
+                    deny_idxs.append(i-1)
+            reqs_denied = requests.iloc[deny_idxs]
+            reqs_denied.to_csv(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy.__name__}.csv', index=True)
             df = pd.Series(labels)
             try:
                 n_permit = df.value_counts()[1]
@@ -320,15 +325,15 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
-    # requests = pd.read_csv(FOLDER / 'requests.csv', index_col=0,
-    #                       ).astype({'date': 'datetime64', 'time': 'datetime64'})
+    # main()
+    requests = pd.read_csv(FOLDER / 'requests.csv', index_col=0,
+                          ).astype({'date': 'datetime64', 'time': 'datetime64'})
     # rap = RiskAssessmentPoint()
     # request = requests.iloc[0]
     # print(rap.evaluate(request))
 
-    # pdp = PolicyDecisionPoint()
-    # pdp.test_policies(requests)
+    pdp = PolicyDecisionPoint()
+    pdp.test_policies(requests)
     # exists = []
     # owner = []
     # for i in requests.index:

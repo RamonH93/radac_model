@@ -39,19 +39,20 @@ def riskscore_stats():
     print(pd.DataFrame({'action': y_a, 'riskscore': pd.Series(y_r.flatten())}).value_counts())
 
 def hparams_stats():
-    df = pd.read_csv(FOLDER / 'hparams_test_1epoch.csv', index_col=0).fillna('None')
+    df = pd.read_csv(FOLDER / FOLDER / 'hparams_final.csv').fillna('None')
     # print(df.groupby('model')[['monitor', 'monitor_val']].describe()[[('monitor_val', 'mean'), ('monitor_val',   'std')]])
-    model = 'regression'
+    model = 'binary'
     modeldf = df.loc[df['model'] == model]
+    print(modeldf)
     if model == 'regression':
         modelbest = modeldf.iloc[np.argmin(modeldf['monitor_val'])].copy()
     else:
         modelbest = modeldf.iloc[np.argmax(modeldf['monitor_val'])].copy()
-    modelbest.drop(['monitor', 'monitor_val'], inplace=True)
+    # modelbest.drop(['monitor', 'monitor_val', 'f1', 'f2', 'f3', 'f4'], inplace=True)
     modelbest = modelbest.to_dict()
     print(modelbest)
 
-    print(modeldf.groupby('layers')[['monitor_val']].describe())
+    # print(modeldf.groupby('layers')[['monitor_val']].describe())
 
 if __name__ == '__main__':
     hparams_stats()
