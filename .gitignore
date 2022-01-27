@@ -1,6 +1,7 @@
 logs/*
 *.png
 *.csv
+*.hdf5
 *.h5
 *.npz
 *.lnk
