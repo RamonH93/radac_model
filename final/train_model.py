@@ -8,6 +8,7 @@ import seaborn as sns
 import tensorflow as tf
 import os
 from pathlib import Path
+from time import perf_counter
 from tensorflow import keras
 from sklearn.model_selection import ParameterGrid, KFold
 
@@ -81,27 +82,22 @@ def tune_hparams():
             'multiclass',
             'regression',
         ],
-        'layers': [0, 1, 2],
-        'neurons': [3, 50, 100],
-        'batch_size': [4096, 256, 1024],
-        'regularizer': [
-            None,
-            keras.regularizers.l2(),
-        ],
         'optimizer': [
             'Adam',
-            'SGD',
             'RMSprop',
-        ]
+            # 'SGD',
+        ],
+        'layers': [2, 1, 0],
+        'neurons': [100, 50, 3],
+        'batch_size': [4096, 1024],
+        'regularizer': [
+            None,
+            # keras.regularizers.l2(),
+        ],
     }
 
-    with open(FOLDER / 'hparams.csv', 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        headers = []
-        headers.append('session')
-        headers.append('val_loss')
-        headers.extend(list(hparams.keys()))
-        writer.writerow(headers)
+    keras.utils.get_custom_objects().update(
+        {'MCC': MatthewsCorrelationCoefficient})
 
     npzfile = np.load(FOLDER / 'Xys.npz')
     X = npzfile['X']
@@ -112,18 +108,52 @@ def tune_hparams():
     stats = []
     param_grid = ParameterGrid(hparams)
 
-    for session, paramset in enumerate(param_grid):
+    fmt = "Progress: {:>3}% estimated {:>3}s remaining"
+    num = len(param_grid)
 
+    start = perf_counter()
+    for session, paramset in enumerate(param_grid):
         stats.append(paramset)
-        paramset_val_losses = []
-        print(f'{datetime.now()} {session+1}/{len(param_grid)} starting')
+        paramset_monitor_vals = []
+        print(f'{datetime.now()} {session+1}/{len(param_grid)} starting {str(paramset)}')
         if paramset['model'] == 'regression':
             y = y_r
+            loss = 'mean_squared_error'
+            metrics = [keras.metrics.RootMeanSquaredError()]
+            monitor = 'val_root_mean_squared_error'
+            earlystopping = keras.callbacks.EarlyStopping(
+                monitor=monitor,
+                min_delta=0,
+                patience=50,
+                verbose=1,
+                mode="min",
+                )
         elif paramset['model'] == 'multiclass':
             y = y_m
+            loss = 'categorical_crossentropy'
+            metrics = ['categorical_accuracy']
+            monitor = 'val_categorical_accuracy'
+            earlystopping = keras.callbacks.EarlyStopping(
+                monitor=monitor,
+                min_delta=0,
+                patience=50,
+                verbose=1,
+                mode="max",
+                )
         else:
             y = y_b
-        for fold, (train_idx, val_idx) in enumerate(KFold().split(X, y)):
+            loss = 'binary_crossentropy'
+            metrics = ['MCC']
+            monitor = 'val_MCC'
+            earlystopping = keras.callbacks.EarlyStopping(
+                monitor=monitor,
+                min_delta=0,
+                patience=50,
+                verbose=1,
+                mode="max",
+                )
+
+        for fold, (train_idx, val_idx) in enumerate(KFold(n_splits=4).split(X, y)):
             # print(f'{datetime.now()} {session}-{fold+1} starting')
             X_train = X[train_idx]
             y_train = y[train_idx]
@@ -138,16 +168,10 @@ def tune_hparams():
                 paramset=paramset
             )
 
-            if model == 'binary':
-                loss = 'binary_crossentropy'
-            elif model == 'multiclass':
-                loss = 'categorical_crossentropy'
-            else:
-                loss = 'mean_squared_error'
-
             model.compile(
                 optimizer=paramset['optimizer'],
                 loss=loss,
+                metrics=metrics
             )
 
             history = model.fit(
@@ -155,20 +179,24 @@ def tune_hparams():
                 batch_size=paramset['batch_size'],
                 epochs=1000,
                 verbose=0,
-                callbacks=[EARLYSTOPPING],
+                callbacks=[earlystopping],
                 validation_data=(X_val, y_val)
             )
-            fold_val_loss = min(history.history['val_loss'])
-            paramset_val_losses.append(fold_val_loss)
-            print(f'{datetime.now()} {session+1}-{fold+1} {round(fold_val_loss, 4)}')
-        paramset_avg_val_loss = np.mean(paramset_val_losses)
-        stats[session]['val_loss'] = paramset_avg_val_loss
+            if paramset['model'] == 'regression':
+                monitor_val = min(history.history[monitor])
+            else:
+                monitor_val = max(history.history[monitor])
+            paramset_monitor_vals.append(monitor_val)
+            print(f'{datetime.now()} {session+1}-{fold+1} {round(monitor_val, 4)}')
+        paramset_avg_monitor_val = np.mean(paramset_monitor_vals)
+        stats[session]['monitor'] = monitor
+        stats[session]['monitor_val'] = paramset_avg_monitor_val
         
         with open(FOLDER / 'hparams.csv', 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             row = []
-            row.append(session+1)
-            row.append(paramset_avg_val_loss)
+            row.append(monitor)
+            row.append(paramset_avg_monitor_val)
             row.append(paramset['model'])
             row.append(paramset['layers'])
             row.append(paramset['neurons'])
@@ -178,9 +206,13 @@ def tune_hparams():
             else:
                 row.append(paramset['regularizer']._keras_api_names[0])
             row.append(paramset['optimizer'])
+            row.extend(paramset_monitor_vals)
             writer.writerow(row)
 
-        print(f'{datetime.now()} {session+1} {round(paramset_avg_val_loss, 4)} {str(paramset)}')
+        stop = perf_counter()
+        remaining = round((stop - start) * (num / (session+1) - 1))
+        print(f'{datetime.now()}', fmt.format(100 * (session+1) // num, remaining), end='\n', flush=True)
+        print(f'{datetime.now()} {session+1} {round(paramset_avg_monitor_val, 4)}')
 
     return pd.DataFrame(stats)
 
@@ -221,9 +253,9 @@ def main(model='binary'):
 
     paramset = {
         'model': model,
-        'layers': 2,
+        'layers': 0,
         'neurons': 3,
-        'batch_size': 32,
+        'batch_size': 4096,
         'regularizer': None,
         'optimizer': 'Adam'
     }
@@ -268,7 +300,13 @@ def main(model='binary'):
         batch_size=4096,
         epochs=1000,
         verbose=2,
-        callbacks=[EARLYSTOPPING],
+        callbacks=[keras.callbacks.EarlyStopping(
+                monitor='MCC',
+                min_delta=0,
+                patience=100,
+                verbose=1,
+                mode="max",
+                )],
         validation_data=(X_val, y_val)
         )
 
@@ -326,21 +364,30 @@ def main(model='binary'):
             f'{datetime.now()}',
             p=0.5,
         )
+    keras.backend.clear_session()
 
 
 if __name__ == '__main__':
     # binary/multiclass/regression
-    # main(model='binary)
+    # main(model='binary')
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     random.seed(SEED)
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
     keras.backend.clear_session()
 
-    try:
-        Path.unlink(FOLDER / 'hparams.csv')
-    except FileNotFoundError:
-        pass
+    # try:
+    #     Path.unlink(FOLDER / 'hparams.csv')
+    # except FileNotFoundError:
+    #     pass
+    # with open(FOLDER / 'hparams.csv', 'w', newline='', encoding='utf-8') as f:
+    #     writer = csv.writer(f)
+    #     headers = []
+    #     headers.append('monitor')
+    #     headers.append('monitor_val')
+    #     headers.extend(list(hparams.keys()))
+    #     writer.writerow(headers)
     df = tune_hparams()
-    # df.to_csv(FOLDER / 'hparams.csv')
+    df.to_csv(FOLDER / 'hparams_complete.csv')
     print(df)
+    keras.backend.clear_session()
