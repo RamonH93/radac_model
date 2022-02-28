@@ -442,7 +442,7 @@ if __name__ == '__main__':
             y_true,
             y_pred > 0.5,
             FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}_cm.png',
-            f'{datetime.now()}',
+            f'{policy}',
             p=0.5,
         )
 

@@ -43,11 +43,11 @@ class PolicyDecisionPoint:
         # person_exists_policy - 1: 28448, 0: 1552
         # resource_exists_policy - 1: 30000, 0: 0
         # location_policy - 1: 28459, 0: 1541
-        #? is_owner_policy - 1: 22635, 0: 7365
+        # ? is_owner_policy - 1: 22635, 0: 7365
         # resource_in_unit_policy - 1: 28149, 0: 1851
-        #? resource_in_department_policy - 1: 21875, 0: 8125
-        #* owner_or_department_policy - 1: 26564, 0: 3436
-        #? age_policy - 1: 24148, 0: 5852
+        # ? resource_in_department_policy - 1: 21875, 0: 8125
+        # * owner_or_department_policy - 1: 26564, 0: 3436
+        # ? age_policy - 1: 24148, 0: 5852
         # weekday_policy - 1: 28531, 0: 1469
         # time_policy - 1: 28593, 0: 1407
         # company_policy - 1: 28411, 0: 1589
@@ -219,14 +219,14 @@ class RiskAssessmentPoint:
 
     # AFTER PREPROCESSING (MINMAX SCALER)
     # 1       0.000000     18523
-    # 0       1.000000      4068
+    # 0       1.000000      4068%
     #         0.365854      2850
     # 1       0.195122      2782
     # 0       0.195122      1067
     #         0.487805       393
     #         0.341463       145
     #         0.609756       130
-    # 1       1.000000        14
+    # 1       1.000000        14%
     # 0       0.682927        10
     #         0.585366         8
     # 1       0.365854         5
@@ -320,20 +320,20 @@ def main():
 
     print(f'1: {pd.DataFrame(labels)["action"].value_counts()[1]}, 0: {pd.DataFrame(labels)["action"].value_counts()[0]}')
 
-    pd.DataFrame(labels).to_csv(FOLDER / 'labels.csv', index=False)
-    print(f'{datetime.now()} Labels generated successfully.')
+    # pd.DataFrame(labels).to_csv(FOLDER / 'labels.csv', index=False)
+    # print(f'{datetime.now()} Labels generated successfully.')
 
 
 if __name__ == '__main__':
-    # main()
+    main()
     requests = pd.read_csv(FOLDER / 'requests.csv', index_col=0,
                           ).astype({'date': 'datetime64', 'time': 'datetime64'})
     # rap = RiskAssessmentPoint()
     # request = requests.iloc[0]
     # print(rap.evaluate(request))
 
-    pdp = PolicyDecisionPoint()
-    pdp.test_policies(requests)
+    # pdp = PolicyDecisionPoint()
+    # pdp.test_policies(requests)
     # exists = []
     # owner = []
     # for i in requests.index:

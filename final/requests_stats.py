@@ -36,7 +36,7 @@ def riskscore_stats():
     X = npzfile['X']
     y_a = npzfile['y_a']
     y_r = npzfile['y_r']
-    print(pd.DataFrame({'action': y_a, 'riskscore': pd.Series(y_r.flatten())}).value_counts())
+    print(pd.DataFrame({'action': y_a.flatten(), 'riskscore': pd.Series(y_r.flatten())}).value_counts())
 
 def hparams_stats():
     df = pd.read_csv(FOLDER / FOLDER / 'hparams_final.csv').fillna('None')
@@ -55,4 +55,4 @@ def hparams_stats():
     # print(modeldf.groupby('layers')[['monitor_val']].describe())
 
 if __name__ == '__main__':
-    hparams_stats()
+    riskscore_stats()

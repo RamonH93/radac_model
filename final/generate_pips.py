@@ -103,7 +103,7 @@ LOCALES = [
     # 'th_TH',
     'tl_PH',
     'tr_TR',
-    # 'uk_UA',
+    # 'uk_UA',3
     # 'zh_CN',
     # 'zh_TW',
 ]
