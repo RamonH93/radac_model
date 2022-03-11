@@ -1,25 +1,22 @@
 import csv
-from datetime import datetime
-import matplotlib.pyplot as plt
+import json
+import os
 import random
+from datetime import datetime
+from pathlib import Path
+from time import perf_counter
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import tensorflow as tf
-import json
-import os
-from pathlib import Path
-from time import perf_counter
+from sklearn.model_selection import KFold, ParameterGrid
 from tensorflow import keras
-from sklearn.model_selection import ParameterGrid, KFold
 
 from generate_pips import FOLDER, SEED
-from utils import (
-    MatthewsCorrelationCoefficient,
-    plot_cm,
-    plot_metrics,
-    plot_roc,
-)
+from utils import (MatthewsCorrelationCoefficient, plot_cm, plot_metrics,
+                   plot_roc)
 
 
 def summarize_keras_trainable_variables(model, message):
@@ -102,6 +99,18 @@ def tune_hparams():
 
     stats = []
     param_grid = ParameterGrid(hparams)
+
+    try:
+        Path.unlink(FOLDER / 'finalfinal' / 'hparams.csv')
+    except FileNotFoundError:
+        pass
+    with open(FOLDER / 'finalfinal' / 'hparams.csv', 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        headers = []
+        headers.append('monitor')
+        headers.append('monitor_val')
+        headers.extend(list(hparams.keys()))
+        writer.writerow(headers)
 
     fmt = "Progress: {:>3}% estimated {:>3}s remaining"
     num = len(param_grid)
@@ -187,7 +196,7 @@ def tune_hparams():
         stats[session]['monitor'] = monitor
         stats[session]['monitor_val'] = paramset_avg_monitor_val
         
-        with open(FOLDER / 'hparams.csv', 'a', newline='', encoding='utf-8') as f:
+        with open(FOLDER / 'finalfinal' / 'hparams.csv', 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             row = []
             row.append(monitor)
@@ -249,7 +258,7 @@ def main(modelstr='binary'):
         loss = 'mean_squared_error'
         metrics = [keras.metrics.RootMeanSquaredError()]
         savemodel = keras.callbacks.ModelCheckpoint(
-            filepath=str(FOLDER / FOLDER / 'models' / paramset['model'] / 'model.{epoch:02d}-{val_root_mean_squared_error:.2f}.hdf5'),
+            filepath=str(FOLDER / 'finalfinal' / 'models' / paramset['model'] / 'model.{epoch:02d}-{val_root_mean_squared_error:.2f}.hdf5'),
             monitor=paramset['monitor'],
             verbose=1,
             save_best_only=True,
@@ -261,7 +270,7 @@ def main(modelstr='binary'):
         loss = 'categorical_crossentropy'
         metrics = ['categorical_accuracy']
         savemodel = keras.callbacks.ModelCheckpoint(
-            filepath=str(FOLDER / FOLDER / 'models' / paramset['model'] / 'model.{epoch:02d}-{val_categorical_accuracy:.2f}.hdf5'),
+            filepath=str(FOLDER / 'finalfinal' / 'models' / paramset['model'] / 'model.{epoch:02d}-{val_categorical_accuracy:.2f}.hdf5'),
             monitor=paramset['monitor'],
             verbose=1,
             save_best_only=True,
@@ -277,7 +286,7 @@ def main(modelstr='binary'):
             'MCC',
         ]
         savemodel = keras.callbacks.ModelCheckpoint(
-            filepath=str(FOLDER / FOLDER / 'models' / paramset['model'] / 'model.{epoch:02d}-{val_MCC:.2f}.hdf5'),
+            filepath=str(FOLDER / 'finalfinal' / 'models' / paramset['model'] / 'model.{epoch:02d}-{val_MCC:.2f}.hdf5'),
             monitor=paramset['monitor'],
             verbose=1,
             save_best_only=True,
@@ -304,20 +313,22 @@ def main(modelstr='binary'):
         {'MCC': MatthewsCorrelationCoefficient})
 
     model.compile(
-        optimizer=keras.optimizers.Adam(amsgrad=False),
+        # optimizer=keras.optimizers.Adam(amsgrad=False),
+        optimizer=paramset['optimizer'],
         loss=loss,
         metrics=metrics,
     )
 
     summarize_keras_trainable_variables(model, "before training")
     # summary of trainable variables before training: -34.9238157272339
-    keras.utils.plot_model(model, FOLDER / 'model.png', show_shapes=True, rankdir='LR')
+    keras.utils.plot_model(model, FOLDER / 'finalfinal' / 'models' / modelstr / 'figs' / 'model.png', show_shapes=True, rankdir='LR')
     print(f'\n\n\n Model compiled.\n\n\n')
 
 
     history = model.fit(
         X_train, y_train,
-        batch_size=4096,
+        # batch_size=4096,
+        batch_size=paramset['batch_size'],
         epochs=1000,
         verbose=2,
         callbacks=[savemodel],
@@ -336,7 +347,7 @@ def main(modelstr='binary'):
         history,
         optimizer='ADAM',
         loss='BCE',
-        figdir=FOLDER / 'history.png',
+        figdir=FOLDER / 'finalfinal' / 'models' / modelstr / 'figs' / 'history.png',
         show=False,
     )
     if paramset['model'] == 'regression':
@@ -344,7 +355,7 @@ def main(modelstr='binary'):
         plt.scatter(y_test, y_pred)
         plt.xlabel('Ground Truth')
         plt.ylabel('Predicted Security Risk')
-        plt.savefig(FOLDER / 'riskpreds.png')
+        plt.savefig(FOLDER / 'finalfinal' / 'models' / modelstr / 'figs' / 'riskpreds.png')
         plt.close()
 
         df = pd.DataFrame({'y_true': y_test.flatten(), 'y_pred': y_pred.flatten()})
@@ -353,13 +364,13 @@ def main(modelstr='binary'):
             data[k] = pd.Series(df.loc[df['y_true'] == k]['y_pred'].values)
         data.columns = [round(col, 2) for col in data.columns]
         sns.boxplot(data=data, palette="Set1", showfliers=False)
-        plt.savefig(FOLDER / 'boxplot.png')
+        plt.savefig(FOLDER / 'finalfinal' / 'models' / modelstr / 'figs' / 'boxplot.png')
         plt.close()
     elif paramset['model'] == 'multiclass':
         plot_cm(
             np.argmax(y_test, axis=1),
             np.argmax(y_pred, axis=1),
-            FOLDER / 'cm.png',
+            FOLDER / 'finalfinal' / 'models' / modelstr / 'figs' / 'cm.png',
             f'{datetime.now()}',
             p=0.5,
             risk=True
@@ -368,13 +379,13 @@ def main(modelstr='binary'):
         plot_roc(
             y_test,
             y_pred,
-            FOLDER / 'roc.png',
+            FOLDER / 'finalfinal' / 'models' / modelstr / 'figs' / 'roc.png',
             f'{datetime.now()}',
         )
         plot_cm(
             y_test,
             y_pred > 0.5,
-            FOLDER / 'cm.png',
+            FOLDER / 'finalfinal' / 'models' / modelstr / 'figs' / 'cm.png',
             f'{datetime.now()}',
             p=0.5,
         )
@@ -383,35 +394,24 @@ def main(modelstr='binary'):
 
 if __name__ == '__main__':
     # binary/multiclass/regression
-    modelstr = 'binary'
+    modelstr = 'regression'
     # main(modelstr=modelstr)
 
-    # os.environ['TF_DETERMINISTIC_OPS'] = '1'
-    # random.seed(SEED)
-    # np.random.seed(SEED)
-    # tf.random.set_seed(SEED)
-    # keras.backend.clear_session()
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
+    keras.backend.clear_session()
 
-    # # try:
-    # #     Path.unlink(FOLDER / 'hparams.csv')
-    # # except FileNotFoundError:
-    # #     pass
-    # # with open(FOLDER / 'hparams.csv', 'w', newline='', encoding='utf-8') as f:
-    # #     writer = csv.writer(f)
-    # #     headers = []
-    # #     headers.append('monitor')
-    # #     headers.append('monitor_val')
-    # #     headers.extend(list(hparams.keys()))
-    # #     writer.writerow(headers)
-    # df = tune_hparams()
-    # df.to_csv(FOLDER / 'hparams_complete.csv')
-    # print(df)
-    # keras.backend.clear_session()
+    df = tune_hparams()
+    df.to_csv(FOLDER / 'finalfinal' / 'hparams_complete.csv')
+    print(df)
+    keras.backend.clear_session()
 
-    keras.utils.get_custom_objects().update(
-        {'MCC': MatthewsCorrelationCoefficient})
+    # keras.utils.get_custom_objects().update(
+    #     {'MCC': MatthewsCorrelationCoefficient})
 
-    model = keras.models.load_model(FOLDER / FOLDER / 'models' / 'binary' / 'model.868-0.71.hdf5', compile=True)
+    # model = keras.models.load_model(FOLDER / FOLDER / 'models' / 'binary' / 'model.868-0.71.hdf5', compile=True)
 
     # model = keras.models.load_model(FOLDER / FOLDER / 'models' / 'multiclass' / 'model.464-0.86.hdf5', compile=True)
     
@@ -419,32 +419,32 @@ if __name__ == '__main__':
 
 
     # PREDICT DENIED CLEARANCE POLICY REQUESTS
-    policies = [
-        'person_exists_policy',
-        # 'resource_exists_policy', # no entries
-        'location_policy',
-        'resource_in_unit_policy',
-        'owner_or_department_policy',
-        'weekday_policy',
-        'time_policy',
-        'company_policy',
-        'clearance_policy',
-    ]
-    for policy in policies:
-        npzfile = np.load(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}.npz')
-        X = npzfile['X']
-        y_b = npzfile['y_a']
-        y_r = npzfile['y_r']
-        y_m = pd.get_dummies(y_r.flatten()).values
-        y_true = y_b
-        y_pred = model.predict(X)
-        plot_cm(
-            y_true,
-            y_pred > 0.5,
-            FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}_cm.png',
-            f'{policy}',
-            p=0.5,
-        )
+    # policies = [
+    #     'person_exists_policy',
+    #     # 'resource_exists_policy', # no entries
+    #     'location_policy',
+    #     'resource_in_unit_policy',
+    #     'owner_or_department_policy',
+    #     'weekday_policy',
+    #     'time_policy',
+    #     'company_policy',
+    #     'clearance_policy',
+    # ]
+    # for policy in policies:
+    #     npzfile = np.load(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}.npz')
+    #     X = npzfile['X']
+    #     y_b = npzfile['y_a']
+    #     y_r = npzfile['y_r']
+    #     y_m = pd.get_dummies(y_r.flatten()).values
+    #     y_true = y_b
+    #     y_pred = model.predict(X)
+    #     plot_cm(
+    #         y_true,
+    #         y_pred > 0.5,
+    #         FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}_cm.png',
+    #         f'{policy}',
+    #         p=0.5,
+    #     )
 
     # EACH MODEL PREDICT FIRST INSTANCE
     # # print(model.predict(X[:1]), y_b[:1])
