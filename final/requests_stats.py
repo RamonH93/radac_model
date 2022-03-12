@@ -39,8 +39,9 @@ def riskscore_stats():
     print(pd.DataFrame({'action': y_a.flatten(), 'riskscore': pd.Series(y_r.flatten())}).value_counts())
 
 def hparams_stats():
-    df = pd.read_csv(FOLDER / FOLDER / 'hparams_final.csv').fillna('None')
-    # print(df.groupby('model')[['monitor', 'monitor_val']].describe()[[('monitor_val', 'mean'), ('monitor_val',   'std')]])
+    df = pd.read_csv(FOLDER / 'hparams.csv').fillna('None')
+    # df = pd.read_csv(FOLDER / 'finalfinal' / 'hparams_batch_sizes.csv').fillna('None')
+    print(df.groupby('model')[['monitor', 'monitor_val']].describe()[[('monitor_val', 'mean'), ('monitor_val',   'std')]])
     model = 'binary'
     modeldf = df.loc[df['model'] == model]
     print(modeldf)
@@ -52,9 +53,10 @@ def hparams_stats():
     modelbest = modelbest.to_dict()
     print(modelbest)
 
-    # print(modeldf.groupby('layers')[['monitor_val']].describe())
+    print(modeldf.groupby('neurons')[['monitor_val']].describe())
 
 if __name__ == '__main__':
     # riskscore_stats()
-    df = pd.read_csv(FOLDER / 'requests.csv', index_col=0)
-    print(df['company'].nunique())
+    # df = pd.read_csv(FOLDER / 'requests.csv', index_col=0)
+    # print(df['company'].nunique())
+    hparams_stats()

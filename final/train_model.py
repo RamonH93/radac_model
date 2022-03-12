@@ -68,6 +68,7 @@ def create_model(input_shape, y_shape, paramset):
     return model
 
 def tune_hparams():
+    n_splits=5
     hparams = {
         'model': [
             'binary',
@@ -77,11 +78,25 @@ def tune_hparams():
         'optimizer': [
             'Adam',
             'RMSprop',
-            # 'SGD',
+            'SGD',
         ],
-        'layers': [2, 1, 0],
-        'neurons': [100, 50, 3],
-        'batch_size': [4096, 1024],
+        'layers': [
+            2,
+            1,
+            # 0,
+        ],
+        'neurons': [
+            200,
+            100,
+            # 3,
+        ],
+        'batch_size': [
+            # 24000,
+            4096,
+            1024,
+            512,
+            # 256,
+            ],
         'regularizer': [
             None,
             # keras.regularizers.l2(),
@@ -91,7 +106,7 @@ def tune_hparams():
     keras.utils.get_custom_objects().update(
         {'MCC': MatthewsCorrelationCoefficient})
 
-    npzfile = np.load(FOLDER / 'Xys.npz')
+    npzfile = np.load(FOLDER / 'finalfinal' / 'preprocessed_final.npz')
     X = npzfile['X']
     y_b = npzfile['y_a']
     y_r = npzfile['y_r']
@@ -110,6 +125,7 @@ def tune_hparams():
         headers.append('monitor')
         headers.append('monitor_val')
         headers.extend(list(hparams.keys()))
+        headers.extend([f'f{n}' for n in range(1, n_splits+1)])
         writer.writerow(headers)
 
     fmt = "Progress: {:>3}% estimated {:>3}s remaining"
@@ -157,7 +173,7 @@ def tune_hparams():
                 mode="max",
                 )
 
-        for fold, (train_idx, val_idx) in enumerate(KFold(n_splits=4).split(X, y)):
+        for fold, (train_idx, val_idx) in enumerate(KFold(n_splits=n_splits).split(X, y)):
             # print(f'{datetime.now()} {session}-{fold+1} starting')
             X_train = X[train_idx]
             y_train = y[train_idx]
@@ -165,33 +181,40 @@ def tune_hparams():
             y_val = y[val_idx]
 
             keras.backend.clear_session()
+            try:
+                model = create_model(
+                    input_shape=X_train.shape[1],
+                    y_shape=y_train.shape[1],
+                    paramset=paramset
+                )
 
-            model = create_model(
-                input_shape=X_train.shape[1],
-                y_shape=y_train.shape[1],
-                paramset=paramset
-            )
+                model.compile(
+                    optimizer=paramset['optimizer'],
+                    loss=loss,
+                    metrics=metrics
+                )
 
-            model.compile(
-                optimizer=paramset['optimizer'],
-                loss=loss,
-                metrics=metrics
-            )
-
-            history = model.fit(
-                X_train, y_train,
-                batch_size=paramset['batch_size'],
-                epochs=1000,
-                verbose=0,
-                callbacks=[earlystopping],
-                validation_data=(X_val, y_val)
-            )
-            if paramset['model'] == 'regression':
-                monitor_val = min(history.history[monitor])
-            else:
-                monitor_val = max(history.history[monitor])
+                history = model.fit(
+                    X_train, y_train,
+                    batch_size=paramset['batch_size'],
+                    epochs=1000,
+                    verbose=0,
+                    callbacks=[earlystopping],
+                    validation_data=(X_val, y_val)
+                )
+                if paramset['model'] == 'regression':
+                    monitor_val = min(history.history[monitor])
+                else:
+                    monitor_val = max(history.history[monitor])
+            except Exception:
+                if paramset['model'] == 'regression':
+                    monitor_val = 99.
+                else:
+                    monitor_val = -99.
             paramset_monitor_vals.append(monitor_val)
             print(f'{datetime.now()} {session+1}-{fold+1} {round(monitor_val, 4)}')
+        monitor_vals_for_mean = np.array(paramset_monitor_vals)
+        monitor_vals_for_mean = monitor_vals_for_mean[(monitor_vals_for_mean > -99.) & (monitor_vals_for_mean < 99.)]
         paramset_avg_monitor_val = np.mean(paramset_monitor_vals)
         stats[session]['monitor'] = monitor
         stats[session]['monitor_val'] = paramset_avg_monitor_val
@@ -327,7 +350,7 @@ def main(modelstr='binary'):
 
     history = model.fit(
         X_train, y_train,
-        # batch_size=4096,
+        # batch_size=18000,
         batch_size=paramset['batch_size'],
         epochs=1000,
         verbose=2,
@@ -394,19 +417,19 @@ def main(modelstr='binary'):
 
 if __name__ == '__main__':
     # binary/multiclass/regression
-    modelstr = 'multiclass'
-    main(modelstr=modelstr)
+    # modelstr = 'multiclass'
+    # main(modelstr=modelstr)
 
-    # os.environ['TF_DETERMINISTIC_OPS'] = '1'
-    # random.seed(SEED)
-    # np.random.seed(SEED)
-    # tf.random.set_seed(SEED)
-    # keras.backend.clear_session()
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
+    keras.backend.clear_session()
 
-    # df = tune_hparams()
-    # df.to_csv(FOLDER / 'finalfinal' / 'hparams_complete.csv')
-    # print(df)
-    # keras.backend.clear_session()
+    df = tune_hparams()
+    df.to_csv(FOLDER / 'finalfinal' / 'hparams_complete.csv')
+    print(df)
+    keras.backend.clear_session()
 
     # keras.utils.get_custom_objects().update(
     #     {'MCC': MatthewsCorrelationCoefficient})
