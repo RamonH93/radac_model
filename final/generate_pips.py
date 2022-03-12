@@ -192,6 +192,12 @@ class MyProvider(BaseProvider):
         return np.random.randint(low=AGE_DIST[age_group][0],
                                  high=AGE_DIST[age_group][1])
 
+    def worker_age(self) -> int:
+        age = self.age()
+        while age < 18:
+            age = self.age()
+        return age
+
     def department(self, unit: str) -> str:
         return np.random.choice(DEPARTMENTS[unit])
 
@@ -225,7 +231,7 @@ def generate_employee(fake: Faker=None) -> dict:
         fake = Faker(locale)
         fake.add_provider(MyProvider)
     name = fake.unique.name()
-    age = fake.age()
+    age = fake.worker_age()
     country = fake.current_country_code()
     city = fake.city()
     company = np.random.choice([DEFAULT_COMPANY, fake.company()], p=P_COMPANY)
@@ -332,9 +338,9 @@ def generate_requests(employees_df=None, resources_df=None):
     fakers[locale].add_provider(MyProvider)
     fake = fakers[locale]
     if employees_df is None:
-        employees_df = pd.read_csv(FOLDER / 'employees.csv', index_col=0)
+        employees_df = pd.read_csv(FOLDER / 'finalfinal' / 'employees.csv', index_col=0)
     if resources_df is None:
-        resources_df = pd.read_csv(FOLDER / 'resources.csv', index_col=0)
+        resources_df = pd.read_csv(FOLDER / 'finalfinal' / 'resources.csv', index_col=0)
     requests = []
 
     for i in range(1, NUM_REQUESTS + 1):
@@ -438,22 +444,22 @@ def main():
         random.seed(SEED)
         np.random.seed(SEED)
 
-    employees_df_ = generate_employees()
-    while employees_df_['email'].nunique() != employees_df_['email'].count():
-        print(f'{datetime.now()} Email addresses not unique, trying again.')
-        employees_df_ = generate_employees()
-    employees_df_.to_csv(FOLDER / 'employees.csv')
-    print(f'{datetime.now()} Employees generated successfully.')
+    # employees_df_ = generate_employees()
+    # while employees_df_['email'].nunique() != employees_df_['email'].count():
+    #     print(f'{datetime.now()} Email addresses not unique, trying again.')
+    #     employees_df_ = generate_employees()
+    # employees_df_.to_csv(FOLDER / 'finalfinal' / 'employees.csv')
+    # print(f'{datetime.now()} Employees generated successfully.')
 
-    resources_df_ = generate_resources(employees_df_)
-    while resources_df_['resource'].nunique() != resources_df_['resource'].count():
-        print(f'{datetime.now()} Resources not unique, trying again.')
-        resources_df_ = generate_resources(employees_df_)
-    resources_df_.to_csv(FOLDER / 'resources.csv')
-    print(f'{datetime.now()} Resources generated successfully.')
+    # resources_df_ = generate_resources(employees_df_)
+    # while resources_df_['resource'].nunique() != resources_df_['resource'].count():
+    #     print(f'{datetime.now()} Resources not unique, trying again.')
+    #     resources_df_ = generate_resources(employees_df_)
+    # resources_df_.to_csv(FOLDER / 'finalfinal' / 'resources.csv')
+    # print(f'{datetime.now()} Resources generated successfully.')
 
     requests_df = generate_requests()
-    requests_df.to_csv(FOLDER / 'requests.csv', index=False)
+    requests_df.to_csv(FOLDER / 'finalfinal' / 'test_requests.csv', index=False)
     print(f'{datetime.now()} Requests generated successfully.')
 
 

@@ -31,7 +31,7 @@ class PolicyDecisionPoint:
             self.resource_in_unit_policy,
             # self.resource_in_department_policy,
             self.owner_or_department_policy,
-            # self.age_policy,
+            self.age_policy,
             self.weekday_policy,
             self.time_policy,
             self.company_policy,
@@ -47,7 +47,7 @@ class PolicyDecisionPoint:
         # resource_in_unit_policy - 1: 28149, 0: 1851
         # ? resource_in_department_policy - 1: 21875, 0: 8125
         # * owner_or_department_policy - 1: 26564, 0: 3436
-        # ? age_policy - 1: 24148, 0: 5852
+        # age_policy - 1: 24148, 0: 5852
         # weekday_policy - 1: 28531, 0: 1469
         # time_policy - 1: 28593, 0: 1407
         # company_policy - 1: 28411, 0: 1589
@@ -65,7 +65,7 @@ class PolicyDecisionPoint:
                 if action == 0:
                     deny_idxs.append(i-1)
             reqs_denied = requests.iloc[deny_idxs]
-            reqs_denied.to_csv(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy.__name__}.csv', index=True)
+            reqs_denied.to_csv(FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy.__name__}.csv', index=True)
             df = pd.Series(labels)
             try:
                 n_permit = df.value_counts()[1]
@@ -300,7 +300,7 @@ class RiskAssessmentPoint:
 
 
 def main():
-    requests = pd.read_csv(FOLDER / 'requests.csv', index_col=0,
+    requests = pd.read_csv(FOLDER / 'finalfinal' / 'test_requests.csv', index_col=0,
                           ).astype({'date': 'datetime64', 'time': 'datetime64'})
     pdp = PolicyDecisionPoint()
     rap = RiskAssessmentPoint()
@@ -320,14 +320,14 @@ def main():
 
     print(f'1: {pd.DataFrame(labels)["action"].value_counts()[1]}, 0: {pd.DataFrame(labels)["action"].value_counts()[0]}')
 
-    # pd.DataFrame(labels).to_csv(FOLDER / 'labels.csv', index=False)
-    # print(f'{datetime.now()} Labels generated successfully.')
+    pd.DataFrame(labels).to_csv(FOLDER / 'finalfinal' / 'test_labels.csv', index=False)
+    print(f'{datetime.now()} Labels generated successfully.')
 
 
 if __name__ == '__main__':
     main()
-    requests = pd.read_csv(FOLDER / 'requests.csv', index_col=0,
-                          ).astype({'date': 'datetime64', 'time': 'datetime64'})
+    # requests = pd.read_csv(FOLDER / 'finalfinal' / 'test_requests.csv', index_col=0,
+    #                       ).astype({'date': 'datetime64', 'time': 'datetime64'})
     # rap = RiskAssessmentPoint()
     # request = requests.iloc[0]
     # print(rap.evaluate(request))

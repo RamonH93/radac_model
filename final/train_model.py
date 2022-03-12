@@ -229,7 +229,7 @@ def main(modelstr='binary'):
     keras.backend.clear_session()
 
     # try:
-    with open(FOLDER / FOLDER / 'models' / modelstr / 'best_hparams.json') as f:
+    with open(FOLDER / 'finalfinal' / 'models' / modelstr / 'best_hparams.json') as f:
         paramset = json.loads(f.read())
         paramset['regularizer'] = None if paramset['regularizer'] == 'None' else paramset['regularizer']
     # except:
@@ -247,7 +247,7 @@ def main(modelstr='binary'):
     print(f'{datetime.now()} Loading data..')
     # X = pd.read_hdf(FOLDER / 'preprocessed.h5').values
     # y = pd.read_csv(FOLDER / 'labels.csv')['action'].values
-    npzfile = np.load(FOLDER / FOLDER / 'Xys.npz')
+    npzfile = np.load(FOLDER / 'finalfinal' / 'preprocessed_final.npz')
     X = npzfile['X']
     y_b = npzfile['y_a']
     y_r = npzfile['y_r']
@@ -394,19 +394,19 @@ def main(modelstr='binary'):
 
 if __name__ == '__main__':
     # binary/multiclass/regression
-    modelstr = 'regression'
-    # main(modelstr=modelstr)
+    modelstr = 'multiclass'
+    main(modelstr=modelstr)
 
-    os.environ['TF_DETERMINISTIC_OPS'] = '1'
-    random.seed(SEED)
-    np.random.seed(SEED)
-    tf.random.set_seed(SEED)
-    keras.backend.clear_session()
+    # os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    # random.seed(SEED)
+    # np.random.seed(SEED)
+    # tf.random.set_seed(SEED)
+    # keras.backend.clear_session()
 
-    df = tune_hparams()
-    df.to_csv(FOLDER / 'finalfinal' / 'hparams_complete.csv')
-    print(df)
-    keras.backend.clear_session()
+    # df = tune_hparams()
+    # df.to_csv(FOLDER / 'finalfinal' / 'hparams_complete.csv')
+    # print(df)
+    # keras.backend.clear_session()
 
     # keras.utils.get_custom_objects().update(
     #     {'MCC': MatthewsCorrelationCoefficient})

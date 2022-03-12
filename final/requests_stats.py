@@ -55,4 +55,6 @@ def hparams_stats():
     # print(modeldf.groupby('layers')[['monitor_val']].describe())
 
 if __name__ == '__main__':
-    riskscore_stats()
+    # riskscore_stats()
+    df = pd.read_csv(FOLDER / 'requests.csv', index_col=0)
+    print(df['company'].nunique())

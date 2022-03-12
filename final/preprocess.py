@@ -63,11 +63,25 @@ def main():
     # time_policy - 1: 28633, 0: 1367
     # company_policy - 1: 28442, 0: 1558
     # clearance_policy - 1: 28575, 0: 1425
-    policy = 'company_policy'
-    df = pd.read_csv(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}.csv').astype(DTYPES)
-    # df = pd.read_csv(FOLDER / 'requests.csv').astype(DTYPES)
+
+    # person_exists_policy - 1: 28640, 0: 1360
+    # resource_exists_policy - 1: 30000, 0: 0
+    # location_policy - 1: 28551, 0: 1449
+    # resource_in_unit_policy - 1: 28569, 0: 1431
+    # owner_or_department_policy - 1: 27176, 0: 2824
+    # age_policy - 1: 29998, 0: 2
+    # weekday_policy - 1: 28470, 0: 1530
+    # time_policy - 1: 28596, 0: 1404
+    # company_policy - 1: 28560, 0: 1440
+    # clearance_policy - 1: 28539, 0: 1461
+
+    # ONLY DENIED REQS (THINK OF SETTING TEST LABELS)
+    # policy = 'location_policy'
+    # df = pd.read_csv(FOLDER / 'finalfinal' / 'policy_denied_reqs' / f'denied_reqs_{policy}.csv').astype(DTYPES)
+    df = pd.read_csv(FOLDER / 'finalfinal' / 'requests.csv').astype(DTYPES)
     ids = df['id'].values
-    resources_df = pd.read_csv(FOLDER / 'requests.csv').astype(DTYPES)
+
+    resources_df = pd.read_csv(FOLDER / 'finalfinal' / 'requests.csv').astype(DTYPES)
 
     # print(df.dtypes)
     # print(df.iloc[0])
@@ -78,21 +92,30 @@ def main():
         'id',
         'resource',
         'category',
-        'resource_unit',
-        'resource_department',
+        # 'resource_unit',
+        # 'resource_department',
         'name',
         'city',
         'company',
-        'person_unit',
-        'person_department',
+        # 'person_unit',
+        # 'person_department',
         'job',
         'phone',
     ]
     to_ohe = [
         'request_location',
+        'resource_unit',
+        'person_unit',
+        'resource_department',
+        'person_department',
         # 'owner',
         # 'email',
         'country',
+        # 'category',
+        # 'city',
+        # 'company',
+        # 'job',
+        # 'phone',
     ]
 
     #! drop columns
@@ -111,7 +134,7 @@ def main():
         new_date_series.iloc[i] = df['date'].iloc[i].weekday()
         if i == 0:
             to_ohe.append('date')
-    
+
     for i in range(new_resources_date_series.size):
         #? as binned week and weekend days
         # new_date_series.iloc[i] = int(df['date'].iloc[i].weekday() in WEEKDAYS
@@ -140,6 +163,19 @@ def main():
     df.drop(['email', 'owner'], axis=1, inplace=True)
     df['is_owner'] = is_owner_series
     print(f'{datetime.now()} Finished is_owner_series.')
+    
+    # #! preprocess unit and department
+    # new_unit_series = pd.Series(np.zeros(df['resource_unit'].size, dtype='int64'))
+    # new_department_series = pd.Series(np.zeros(df['resource_department'].size, dtype='int64'))
+    # for i in range(new_unit_series.size):
+    #     new_unit_series[i] = int(df['resource_unit'].iloc[i] == df['person_unit'].iloc[i])
+    # df.drop(['resource_unit', 'person_unit'], axis=1, inplace=True)
+    # df['same_unit'] = new_unit_series
+    # for i in range(new_department_series.size):
+    #     new_department_series[i] = int(df['resource_department'].iloc[i] == df['person_department'].iloc[i])
+    # df.drop(['resource_department', 'person_department'], axis=1, inplace=True)
+    # df['same_department'] = new_department_series
+    # print(f'{datetime.now()} Finished unit & dept series.')
 
     df['confidentiality_level'] = resources_df['confidentiality_level'].cat.codes
     df['age'] = df['age']
@@ -161,8 +197,8 @@ def main():
     print(df.columns)
 
     X = df.values
-    y_a = pd.read_csv(FOLDER / 'labels.csv').iloc[ids-1]['action'].values
-    y_r = pd.read_csv(FOLDER / 'labels.csv').iloc[ids-1]['riskscore'].values
+    y_a = pd.read_csv(FOLDER / 'finalfinal' / 'labels.csv').iloc[ids-1]['action'].values
+    y_r = pd.read_csv(FOLDER / 'finalfinal' / 'labels.csv').iloc[ids-1]['riskscore'].values
     print(f'{datetime.now()} Started normalizing..')
     min_max_scaler = MinMaxScaler()
     X = min_max_scaler.fit_transform(X)
@@ -175,9 +211,10 @@ def main():
     X, y_a, y_r = shuffle(X, y_a, y_r, random_state=SEED)
     print(f'{datetime.now()} Finished shuffling.')
 
-    # np.savez(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}.npz', X=X, y_a=y_a, y_r=y_r)
+    # np.savez(FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}.npz', X=X, y_a=y_a, y_r=y_r)
 
-    # df.to_csv(FOLDER / 'preprocessed.csv')
+    df.to_csv(FOLDER / 'finalfinal' / 'preprocessed_final.csv')
+    # np.savez(FOLDER / 'finalfinal' / 'preprocessed_final.npz', X=X, y_a=y_a, y_r=y_r)
     # df.to_hdf(FOLDER / 'preprocessed.h5', key='requests', mode='w')
     print(f'{datetime.now()} Preprocessed successfully.')
 
