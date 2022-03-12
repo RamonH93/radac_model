@@ -78,7 +78,7 @@ def tune_hparams():
         'optimizer': [
             'Adam',
             'RMSprop',
-            'SGD',
+            keras.optimizers.SGD(learning_rate=0.1),
         ],
         'layers': [
             2,
@@ -232,7 +232,10 @@ def tune_hparams():
                 row.append('None')
             else:
                 row.append(paramset['regularizer']._keras_api_names[0])
-            row.append(paramset['optimizer'])
+            if paramset['optimizer'] == 'Adam' or paramset['optimizer'] == 'RMSprop':
+                row.append(paramset['optimizer'])
+            else:
+                row.append('SGD')
             row.extend(paramset_monitor_vals)
             writer.writerow(row)
 
@@ -337,6 +340,7 @@ def main(modelstr='binary'):
 
     model.compile(
         # optimizer=keras.optimizers.Adam(amsgrad=False),
+        # optimizer=keras.optimizers.SGD(learning_rate=0.1),
         optimizer=paramset['optimizer'],
         loss=loss,
         metrics=metrics,
@@ -417,7 +421,7 @@ def main(modelstr='binary'):
 
 if __name__ == '__main__':
     # binary/multiclass/regression
-    # modelstr = 'multiclass'
+    # modelstr = 'binary'
     # main(modelstr=modelstr)
 
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
