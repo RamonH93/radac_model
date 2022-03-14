@@ -258,6 +258,7 @@ def main(modelstr='binary'):
     with open(FOLDER / 'finalfinal' / 'models' / modelstr / 'best_hparams.json') as f:
         paramset = json.loads(f.read())
         paramset['regularizer'] = None if paramset['regularizer'] == 'None' else paramset['regularizer']
+        paramset['optimizer'] = keras.optimizers.SGD(learning_rate=0.1) if paramset['optimizer'] == 'SGD' else paramset['optimizer']
     # except:
     #     print("FAILED loading paramset..")
     #     paramset = {
@@ -279,8 +280,15 @@ def main(modelstr='binary'):
     y_r = npzfile['y_r']
     y_m = pd.get_dummies(y_r.flatten()).values
 
+    npzfile_test = np.load(FOLDER / 'finalfinal' / 'test_preprocessed_final.npz')
+    X_test = npzfile_test['X']
+    y_b_test = npzfile_test['y_a']
+    y_r_test = npzfile_test['y_r']
+    y_m_test = pd.get_dummies(y_r_test.flatten()).values
+
     if paramset['model'] == 'regression':
         y = y_r
+        y_test = y_r_test
         loss = 'mean_squared_error'
         metrics = [keras.metrics.RootMeanSquaredError()]
         savemodel = keras.callbacks.ModelCheckpoint(
@@ -293,6 +301,7 @@ def main(modelstr='binary'):
         )
     elif paramset['model'] == 'multiclass':
         y = y_m
+        y_test = y_m_test
         loss = 'categorical_crossentropy'
         metrics = ['categorical_accuracy']
         savemodel = keras.callbacks.ModelCheckpoint(
@@ -305,6 +314,7 @@ def main(modelstr='binary'):
         )
     else:
         y = y_b
+        y_test = y_b_test
         loss = 'binary_crossentropy'
         metrics = [
             'accuracy',
@@ -321,15 +331,18 @@ def main(modelstr='binary'):
         )
     print(f'{datetime.now()} Loaded successfully.')
 
-    test_size = 0.2
-    data_len = len(y)
-    split_len = int(test_size * data_len)
-    train_split_idx = data_len - 2 * split_len
-    test_split_idx = data_len - split_len
-    X_train, y_train = X[:train_split_idx], y[:train_split_idx]
-    X_val, y_val = X[train_split_idx:test_split_idx], y[
-        train_split_idx:test_split_idx]
-    X_test, y_test = X[test_split_idx:], y[test_split_idx:]
+    # test_size = 0.2
+    # data_len = len(y)
+    # split_len = int(test_size * data_len)
+    # train_split_idx = data_len - 2 * split_len
+    # test_split_idx = data_len - split_len
+    # X_train, y_train = X[:train_split_idx], y[:train_split_idx]
+    # X_val, y_val = X[train_split_idx:test_split_idx], y[
+    #     train_split_idx:test_split_idx]
+    # X_test, y_test = X[test_split_idx:], y[test_split_idx:]
+
+    X_train, y_train = X, y
+    X_test, y_test = X_test, y_test
 
     model = create_model(X_train.shape[1], y.shape[1], paramset)
 
@@ -359,7 +372,8 @@ def main(modelstr='binary'):
         epochs=1000,
         verbose=2,
         callbacks=[savemodel],
-        validation_data=(X_val, y_val)
+        validation_split=0.1
+        # validation_data=(X_val, y_val)
         )
 
     summarize_keras_trainable_variables(model, "after training")
@@ -421,57 +435,56 @@ def main(modelstr='binary'):
 
 if __name__ == '__main__':
     # binary/multiclass/regression
-    # modelstr = 'binary'
+    # modelstr = 'multiclass'
     # main(modelstr=modelstr)
 
-    os.environ['TF_DETERMINISTIC_OPS'] = '1'
-    random.seed(SEED)
-    np.random.seed(SEED)
-    tf.random.set_seed(SEED)
+    # os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    # random.seed(SEED)
+    # np.random.seed(SEED)
+    # tf.random.set_seed(SEED)
+    # keras.backend.clear_session()
+
+    # df = tune_hparams()
+    # df.to_csv(FOLDER / 'finalfinal' / 'hparams_complete.csv')
+    # print(df)
+
     keras.backend.clear_session()
 
-    df = tune_hparams()
-    df.to_csv(FOLDER / 'finalfinal' / 'hparams_complete.csv')
-    print(df)
-    keras.backend.clear_session()
+    keras.utils.get_custom_objects().update(
+        {'MCC': MatthewsCorrelationCoefficient})
 
-    # keras.utils.get_custom_objects().update(
-    #     {'MCC': MatthewsCorrelationCoefficient})
+    model = keras.models.load_model(FOLDER / 'finalfinal' / 'models' / 'binary' / 'model.632-0.90.hdf5', compile=True)
 
-    # model = keras.models.load_model(FOLDER / FOLDER / 'models' / 'binary' / 'model.868-0.71.hdf5', compile=True)
+    # model = keras.models.load_model(FOLDER / 'finalfinal' / 'models' / 'multiclass' / 'model.452-0.95.hdf5', compile=True)
 
-    # model = keras.models.load_model(FOLDER / FOLDER / 'models' / 'multiclass' / 'model.464-0.86.hdf5', compile=True)
-    
-    # model = keras.models.load_model(FOLDER / FOLDER / 'models' / 'regression' / 'model.215-0.17.hdf5', compile=True)
+    # model = keras.models.load_model(FOLDER / 'finalfinal' / 'models' / 'regression' / 'model.93-0.10.hdf5', compile=True)
 
 
     # PREDICT DENIED CLEARANCE POLICY REQUESTS
-    # policies = [
-    #     'person_exists_policy',
-    #     # 'resource_exists_policy', # no entries
-    #     'location_policy',
-    #     'resource_in_unit_policy',
-    #     'owner_or_department_policy',
-    #     'weekday_policy',
-    #     'time_policy',
-    #     'company_policy',
-    #     'clearance_policy',
-    # ]
-    # for policy in policies:
-    #     npzfile = np.load(FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}.npz')
-    #     X = npzfile['X']
-    #     y_b = npzfile['y_a']
-    #     y_r = npzfile['y_r']
-    #     y_m = pd.get_dummies(y_r.flatten()).values
-    #     y_true = y_b
-    #     y_pred = model.predict(X)
-    #     plot_cm(
-    #         y_true,
-    #         y_pred > 0.5,
-    #         FOLDER / FOLDER / 'policy_denied_reqs' / f'denied_reqs_{policy}_cm.png',
-    #         f'{policy}',
-    #         p=0.5,
-    #     )
+    policies = [
+        'age_policy',
+        'person_exists_policy',
+        # 'resource_exists_policy', # no entries
+        'location_policy',
+        'resource_in_unit_policy',
+        'owner_or_department_policy',
+        'weekday_policy',
+        'time_policy',
+        'company_policy',
+        'clearance_policy',
+    ]
+    for policy in policies:
+        npzfile = np.load(FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}.npz')
+        X = npzfile['X']
+        y_true = npzfile['y_a']
+        y_pred = model.predict(X)
+        plot_cm(
+            y_true,
+            y_pred > 0.5,
+            FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}_cm.png',
+            f'{policy}',
+            p=0.5,
+        )
 
     # EACH MODEL PREDICT FIRST INSTANCE
     # # print(model.predict(X[:1]), y_b[:1])
@@ -479,18 +492,20 @@ if __name__ == '__main__':
     # print(model.predict(X[:1]), y_r[:1])
 
     ### REGRESSION BOXPLOT
-    # y = y_r
-    # test_size = 0.2
-    # data_len = len(y)
-    # split_len = int(test_size * data_len)
-    # train_split_idx = data_len - 2 * split_len
-    # test_split_idx = data_len - split_len
-    # X_train, y_train = X[:train_split_idx], y[:train_split_idx]
-    # X_val, y_val = X[train_split_idx:test_split_idx], y[
-    #     train_split_idx:test_split_idx]
-    # X_test, y_test = X[test_split_idx:], y[test_split_idx:]
+    # npzfile_test = np.load(FOLDER / 'finalfinal' / 'test_preprocessed_final.npz')
+    # X_test = npzfile_test['X']
+    # y_true = npzfile_test['y_r']
+    # # test_size = 0.2
+    # # data_len = len(y)
+    # # split_len = int(test_size * data_len)
+    # # train_split_idx = data_len - 2 * split_len
+    # # test_split_idx = data_len - split_len
+    # # X_train, y_train = X[:train_split_idx], y[:train_split_idx]
+    # # X_val, y_val = X[train_split_idx:test_split_idx], y[
+    # #     train_split_idx:test_split_idx]
+    # # X_test, y_test = X[test_split_idx:], y[test_split_idx:]
+    # # y_true = y_test
     # y_pred = model.predict(X_test)
-    # y_true = y_test
     # df = pd.DataFrame({'y_true': y_true.flatten(), 'y_pred': y_pred.flatten()})
     # data = pd.DataFrame()
     # for k in np.unique(df['y_true']):
@@ -502,7 +517,7 @@ if __name__ == '__main__':
     #     marker='x',
     #     color='red',
     # )
-    # sns.boxplot(data=data, palette="Set1", showfliers=True)
+    # sns.boxplot(data=data, palette="Set1", showfliers=False)
     # # plt.show()
-    # plt.savefig(FOLDER / FOLDER / 'models' / 'regression' / 'boxplot_outliers_marked.png')
+    # plt.savefig(FOLDER / 'finalfinal' / 'models' / 'regression' / 'figs' / 'boxplot_marked.png')
     # plt.close()

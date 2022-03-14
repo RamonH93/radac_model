@@ -6,8 +6,8 @@ import pandas as pd
 
 from generate_pips import FOLDER
 
-rdf = pd.read_csv(FOLDER / 'requests.csv', index_col=0)
-ldf = pd.read_csv(FOLDER / 'labels.csv', index_col=0)
+rdf = pd.read_csv(FOLDER / 'finalfinal' / 'requests.csv', index_col=0)
+ldf = pd.read_csv(FOLDER / 'finalfinal' / 'labels.csv', index_col=0)
 
 
 def show_date_freqs():
@@ -32,31 +32,31 @@ def show_time_freqs():
 
 def riskscore_stats():
     # print(ldf.value_counts())
-    npzfile = np.load(FOLDER / 'Xys.npz')
+    npzfile = np.load(FOLDER / 'finalfinal' / 'test_preprocessed_final.npz')
     X = npzfile['X']
     y_a = npzfile['y_a']
     y_r = npzfile['y_r']
     print(pd.DataFrame({'action': y_a.flatten(), 'riskscore': pd.Series(y_r.flatten())}).value_counts())
 
 def hparams_stats():
-    df = pd.read_csv(FOLDER / 'hparams.csv').fillna('None')
+    df = pd.read_csv(FOLDER / 'finalfinal' / 'hparams.csv').fillna('None')
     # df = pd.read_csv(FOLDER / 'finalfinal' / 'hparams_batch_sizes.csv').fillna('None')
     print(df.groupby('model')[['monitor', 'monitor_val']].describe()[[('monitor_val', 'mean'), ('monitor_val',   'std')]])
     model = 'binary'
     modeldf = df.loc[df['model'] == model]
-    print(modeldf)
+    # print(modeldf)
     if model == 'regression':
         modelbest = modeldf.iloc[np.argmin(modeldf['monitor_val'])].copy()
     else:
         modelbest = modeldf.iloc[np.argmax(modeldf['monitor_val'])].copy()
-    # modelbest.drop(['monitor', 'monitor_val', 'f1', 'f2', 'f3', 'f4'], inplace=True)
-    modelbest = modelbest.to_dict()
+    # modelbest.drop(['monitor_val', 'f1', 'f2', 'f3', 'f4', 'f5'], inplace=True)
+    modelbest = modelbest.to_json()
     print(modelbest)
 
     print(modeldf.groupby('neurons')[['monitor_val']].describe())
 
 if __name__ == '__main__':
-    # riskscore_stats()
+    riskscore_stats()
     # df = pd.read_csv(FOLDER / 'requests.csv', index_col=0)
     # print(df['company'].nunique())
-    hparams_stats()
+    # hparams_stats()

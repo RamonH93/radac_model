@@ -76,9 +76,9 @@ def main():
     # clearance_policy - 1: 28539, 0: 1461
 
     # ONLY DENIED REQS (THINK OF SETTING TEST LABELS)
-    # policy = 'location_policy'
-    # df = pd.read_csv(FOLDER / 'finalfinal' / 'policy_denied_reqs' / f'denied_reqs_{policy}.csv').astype(DTYPES)
-    df = pd.read_csv(FOLDER / 'finalfinal' / 'requests.csv').astype(DTYPES)
+    policy = 'clearance_policy'
+    df = pd.read_csv(FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}.csv').astype(DTYPES)
+    # df = pd.read_csv(FOLDER / 'finalfinal' / 'test_requests.csv').astype(DTYPES)
     ids = df['id'].values
 
     resources_df = pd.read_csv(FOLDER / 'finalfinal' / 'requests.csv').astype(DTYPES)
@@ -197,8 +197,8 @@ def main():
     print(df.columns)
 
     X = df.values
-    y_a = pd.read_csv(FOLDER / 'finalfinal' / 'labels.csv').iloc[ids-1]['action'].values
-    y_r = pd.read_csv(FOLDER / 'finalfinal' / 'labels.csv').iloc[ids-1]['riskscore'].values
+    y_a = pd.read_csv(FOLDER / 'finalfinal' / 'test_labels.csv').iloc[ids-1]['action'].values
+    y_r = pd.read_csv(FOLDER / 'finalfinal' / 'test_labels.csv').iloc[ids-1]['riskscore'].values
     print(f'{datetime.now()} Started normalizing..')
     min_max_scaler = MinMaxScaler()
     X = min_max_scaler.fit_transform(X)
@@ -211,10 +211,10 @@ def main():
     X, y_a, y_r = shuffle(X, y_a, y_r, random_state=SEED)
     print(f'{datetime.now()} Finished shuffling.')
 
-    # np.savez(FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}.npz', X=X, y_a=y_a, y_r=y_r)
+    np.savez(FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}.npz', X=X, y_a=y_a, y_r=y_r)
 
-    df.to_csv(FOLDER / 'finalfinal' / 'preprocessed_final.csv')
-    # np.savez(FOLDER / 'finalfinal' / 'preprocessed_final.npz', X=X, y_a=y_a, y_r=y_r)
+    # df.to_csv(FOLDER / 'finalfinal' / 'test_preprocessed_final.csv')
+    # np.savez(FOLDER / 'finalfinal' / 'test_preprocessed_final.npz', X=X, y_a=y_a, y_r=y_r)
     # df.to_hdf(FOLDER / 'preprocessed.h5', key='requests', mode='w')
     print(f'{datetime.now()} Preprocessed successfully.')
 
