@@ -1,0 +1,2 @@
+{"model": "multiclass", "monitor": "val_categorical_accuracy", "layers": 2, "neurons": 50, "batch_size": 1024, "regularizer": "None", "optimizer": "RMSprop"}
+{"monitor":"val_categorical_accuracy","model":"multiclass","layers":2,"neurons":100,"batch_size":512,"regularizer":"None","optimizer":"SGD"}

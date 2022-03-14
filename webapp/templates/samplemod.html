@@ -7,7 +7,7 @@
 
 
 <body>
-    <h2>Feature Selection (Row: {{rowidx}})</h2>
+    <h2>Feature Modification (Row: {{rowidx}})</h2>
     <h3>{%if not input_validation['correct']%}Invalid feature '{{input_validation['col']}}' cannot be '{{input_validation['val']}}'.{%else%}Modified features successfully.{%endif%}</h3>
     <form id="samplemod" action="/samplemod" method="POST">
         <table class="tableFixHead" style="margin-left: 20px; margin-right: 20px">

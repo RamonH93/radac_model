@@ -1,0 +1,1 @@
+{"monitor":"val_categorical_accuracy","model":"multiclass","layers":2,"neurons":100,"batch_size":512,"regularizer":"None","optimizer":"SGD"}

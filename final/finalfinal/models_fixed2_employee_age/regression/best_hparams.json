@@ -1,0 +1,1 @@
+{"model": "regression", "monitor": "val_root_mean_squared_error", "layers": 2, "neurons": 50, "batch_size": 1024, "regularizer": "None", "optimizer": "Adam"}

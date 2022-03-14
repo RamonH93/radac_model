@@ -1,0 +1,1 @@
+{"model": "binary", "monitor": "val_MCC", "layers": 1, "neurons": 100, "batch_size": 1024, "regularizer": "None", "optimizer": "Adam"}
