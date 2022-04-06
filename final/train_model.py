@@ -453,38 +453,38 @@ if __name__ == '__main__':
     keras.utils.get_custom_objects().update(
         {'MCC': MatthewsCorrelationCoefficient})
 
-    model = keras.models.load_model(FOLDER / 'finalfinal' / 'models' / 'binary' / 'model.632-0.90.hdf5', compile=True)
+    # model = keras.models.load_model(FOLDER / 'finalfinal' / 'models' / 'binary' / 'model.632-0.90.hdf5', compile=True)
 
     # model = keras.models.load_model(FOLDER / 'finalfinal' / 'models' / 'multiclass' / 'model.452-0.95.hdf5', compile=True)
 
-    # model = keras.models.load_model(FOLDER / 'finalfinal' / 'models' / 'regression' / 'model.93-0.10.hdf5', compile=True)
+    model = keras.models.load_model(FOLDER / 'finalfinal' / 'models' / 'regression' / 'model.93-0.10.hdf5', compile=True)
 
 
     # PREDICT DENIED CLEARANCE POLICY REQUESTS
-    policies = [
-        'age_policy',
-        'person_exists_policy',
-        # 'resource_exists_policy', # no entries
-        'location_policy',
-        'resource_in_unit_policy',
-        'owner_or_department_policy',
-        'weekday_policy',
-        'time_policy',
-        'company_policy',
-        'clearance_policy',
-    ]
-    for policy in policies:
-        npzfile = np.load(FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}.npz')
-        X = npzfile['X']
-        y_true = npzfile['y_a']
-        y_pred = model.predict(X)
-        plot_cm(
-            y_true,
-            y_pred > 0.5,
-            FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}_cm.png',
-            f'{policy}',
-            p=0.5,
-        )
+    # policies = [
+    #     'age_policy',
+    #     'person_exists_policy',
+    #     # 'resource_exists_policy', # no entries
+    #     'location_policy',
+    #     'resource_in_unit_policy',
+    #     'owner_or_department_policy',
+    #     'weekday_policy',
+    #     'time_policy',
+    #     'company_policy',
+    #     'clearance_policy',
+    # ]
+    # for policy in policies:
+    #     npzfile = np.load(FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}.npz')
+    #     X = npzfile['X']
+    #     y_true = npzfile['y_a']
+    #     y_pred = model.predict(X)
+    #     plot_cm(
+    #         y_true,
+    #         y_pred > 0.5,
+    #         FOLDER / 'finalfinal' / 'policy_denied_reqs_test' / f'denied_reqs_{policy}_cm.png',
+    #         f'{policy}',
+    #         p=0.5,
+    #     )
 
     # EACH MODEL PREDICT FIRST INSTANCE
     # # print(model.predict(X[:1]), y_b[:1])
@@ -492,20 +492,22 @@ if __name__ == '__main__':
     # print(model.predict(X[:1]), y_r[:1])
 
     ### REGRESSION BOXPLOT
-    # npzfile_test = np.load(FOLDER / 'finalfinal' / 'test_preprocessed_final.npz')
-    # X_test = npzfile_test['X']
-    # y_true = npzfile_test['y_r']
-    # # test_size = 0.2
-    # # data_len = len(y)
-    # # split_len = int(test_size * data_len)
-    # # train_split_idx = data_len - 2 * split_len
-    # # test_split_idx = data_len - split_len
-    # # X_train, y_train = X[:train_split_idx], y[:train_split_idx]
-    # # X_val, y_val = X[train_split_idx:test_split_idx], y[
-    # #     train_split_idx:test_split_idx]
-    # # X_test, y_test = X[test_split_idx:], y[test_split_idx:]
-    # # y_true = y_test
-    # y_pred = model.predict(X_test)
+    npzfile_test = np.load(FOLDER / 'finalfinal' / 'test_preprocessed_final.npz')
+    X_test = npzfile_test['X']
+    y_true = npzfile_test['y_r']
+    # test_size = 0.2
+    # data_len = len(y)
+    # split_len = int(test_size * data_len)
+    # train_split_idx = data_len - 2 * split_len
+    # test_split_idx = data_len - split_len
+    # X_train, y_train = X[:train_split_idx], y[:train_split_idx]
+    # X_val, y_val = X[train_split_idx:test_split_idx], y[
+    #     train_split_idx:test_split_idx]
+    # X_test, y_test = X[test_split_idx:], y[test_split_idx:]
+    # y_true = y_test
+    y_pred = model.predict(X_test)
+    from sklearn.metrics import mean_squared_error
+    print(mean_squared_error(y_true, y_pred, squared=False))
     # df = pd.DataFrame({'y_true': y_true.flatten(), 'y_pred': y_pred.flatten()})
     # data = pd.DataFrame()
     # for k in np.unique(df['y_true']):
